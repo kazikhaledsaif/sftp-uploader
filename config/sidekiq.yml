@@ -1,0 +1,16 @@
+---
+:concurrency: 5
+:timeout: 30
+:verbose: true
+:queues:
+  - default
+  - downloads
+  - critical
+
+# Production settings
+production:
+  :concurrency: 10
+
+# Development settings
+development:
+  :concurrency: 3

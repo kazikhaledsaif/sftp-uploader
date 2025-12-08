@@ -1,0 +1,314 @@
+<div class="download-card" data-download-id="<%= download.id %>">
+  <div class="download-header">
+    <div class="download-info">
+      <h3 class="download-filename"><%= download.filename.presence || File.basename(URI.parse(download.url).path) %></h3>
+      <p class="download-url"><%= truncate(download.url, length: 50) %></p>
+    </div>
+    <div class="download-status status-<%= download.status %>">
+      <%= download.status.titleize %>
+    </div>
+  </div>
+
+  <div class="download-details">
+    <div class="detail-item">
+      <span class="detail-label">Destination:</span>
+      <span class="detail-value"><%= download.destination_path %></span>
+    </div>
+    <div class="detail-item">
+      <span class="detail-label">Size:</span>
+      <span class="detail-value"><%= download.formatted_file_size %></span>
+    </div>
+    <div class="detail-item">
+      <span class="detail-label">Created:</span>
+      <span class="detail-value"><%= time_ago_in_words(download.created_at) %> ago</span>
+    </div>
+  </div>
+
+  <% if download.downloading? || download.paused? %>
+    <div class="progress-section">
+      <div class="progress-info">
+        <span class="progress-label">Progress</span>
+        <span class="progress-percentage"><%= download.progress_percentage %>%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: <%= download.progress_percentage %>%"></div>
+      </div>
+    </div>
+  <% end %>
+
+  <% if download.error_message.present? %>
+    <div class="error-message">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 4V8M8 10V11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <%= download.error_message %>
+    </div>
+  <% end %>
+
+  <div class="download-actions">
+    <% if download.can_pause? %>
+      <%= button_to pause_download_path(download), method: :post, class: 'btn btn-warning btn-sm', form: { data: { turbo: false } } do %>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="4" y="3" width="3" height="10" fill="currentColor"/>
+          <rect x="9" y="3" width="3" height="10" fill="currentColor"/>
+        </svg>
+        Pause
+      <% end %>
+    <% end %>
+
+    <% if download.can_resume? %>
+      <%= button_to resume_download_path(download), method: :post, class: 'btn btn-success btn-sm', form: { data: { turbo: false } } do %>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M5 3L12 8L5 13V3Z" fill="currentColor"/>
+        </svg>
+        Resume
+      <% end %>
+    <% end %>
+
+    <% if download.can_cancel? %>
+      <%= button_to cancel_download_path(download), method: :post, class: 'btn btn-danger btn-sm', form: { data: { turbo: false } } do %>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Cancel
+      <% end %>
+    <% end %>
+
+    <%= button_to download_path(download), method: :delete, class: 'btn btn-ghost btn-sm', data: { confirm: 'Are you sure?' }, form: { data: { turbo: false } } do %>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 4H13M5 4V3C5 2.5 5.5 2 6 2H10C10.5 2 11 2.5 11 3V4M6 7V11M10 7V11M4 4H12V13C12 13.5 11.5 14 11 14H5C4.5 14 4 13.5 4 13V4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Delete
+    <% end %>
+  </div>
+</div>
+
+<style>
+  .download-card {
+    background: rgba(51, 65, 85, 0.4);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+  }
+
+  .download-card:hover {
+    background: rgba(51, 65, 85, 0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px var(--shadow);
+  }
+
+  .download-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+
+  .download-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .download-filename {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .download-url {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .download-status {
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .status-pending {
+    background: rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+  }
+
+  .status-downloading {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+  }
+
+  .status-paused {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+  }
+
+  .status-completed {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+  }
+
+  .status-failed {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+  }
+
+  .status-cancelled {
+    background: rgba(107, 114, 128, 0.2);
+    color: #9ca3af;
+  }
+
+  .download-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 8px;
+  }
+
+  .detail-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+  }
+
+  .detail-label {
+    color: var(--text-muted);
+  }
+
+  .detail-value {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .progress-section {
+    margin-bottom: 1rem;
+  }
+
+  .progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .progress-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .progress-percentage {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: rgba(51, 65, 85, 0.6);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      opacity: 0.8;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.8;
+    }
+  }
+
+  .error-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    color: #f87171;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-height: 100px;
+    overflow-y: auto;
+  }
+
+  .download-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .btn-warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .btn-warning:hover {
+    background: rgba(245, 158, 11, 0.3);
+  }
+
+  .btn-success {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .btn-success:hover {
+    background: rgba(16, 185, 129, 0.3);
+  }
+
+  .btn-danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(51, 65, 85, 0.4);
+    color: var(--text-secondary);
+  }
+</style>

@@ -1,0 +1,24 @@
+development:
+  host: <%= ENV['SFTP_HOST'] || 'localhost' %>
+  port: <%= ENV['SFTP_PORT']&.to_i || 22 %>
+  username: <%= ENV['SFTP_USERNAME'] || 'your_username' %>
+  password: <%= ENV['SFTP_PASSWORD'] || 'your_password' %>
+  default_destination: <%= ENV['SFTP_DEFAULT_DESTINATION'] || '/uploads' %>
+  timeout: <%= ENV['SFTP_TIMEOUT']&.to_i || 30 %>
+
+test:
+  host: <%= ENV['SFTP_HOST'] || 'localhost' %>
+  port: <%= ENV['SFTP_PORT']&.to_i || 22 %>
+  username: <%= ENV['SFTP_USERNAME'] || 'test_user' %>
+  password: <%= ENV['SFTP_PASSWORD'] || 'test_password' %>
+  default_destination: <%= ENV['SFTP_DEFAULT_DESTINATION'] || '/test_uploads' %>
+  timeout: <%= ENV['SFTP_TIMEOUT']&.to_i || 30 %>
+
+production:
+  host: <%= ENV['SFTP_HOST'] || 'localhost' %>
+  port: <%= ENV['SFTP_PORT']&.to_i || 22 %>
+  username: <%= ENV['SFTP_USERNAME'] || 'user' %>
+  password: <%= ENV['SFTP_PASSWORD'] || 'password' %>
+  default_destination: <%= ENV['SFTP_DEFAULT_DESTINATION'] || '/uploads' %>
+  timeout: <%= ENV['SFTP_TIMEOUT']&.to_i || 30 %>
+

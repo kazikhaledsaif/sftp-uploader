@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+log/*
+tmp/*
+*.log
+
+# Database
+*.sqlite3
+*.sqlite3-*
+
+# Node modules
+node_modules/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+/test
+/spec
+/coverage
+
+# Documentation
+README.md
+DEPLOYMENT.md
+TROUBLESHOOTING.md
+FOLDER_CREATION.md
+ENV_SETUP.md
+SFTP_SETUP.md

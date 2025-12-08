@@ -1,0 +1,56 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: .
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails server -b 0.0.0.0"
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - RAILS_ENV=development
+      - SFTP_HOST=${SFTP_HOST:-localhost}
+      - SFTP_PORT=${SFTP_PORT:-22}
+      - SFTP_USERNAME=${SFTP_USERNAME:-user}
+      - SFTP_PASSWORD=${SFTP_PASSWORD:-password}
+      - SFTP_DEFAULT_DESTINATION=${SFTP_DEFAULT_DESTINATION:-/uploads}
+      - SFTP_TIMEOUT=${SFTP_TIMEOUT:-30}
+    stdin_open: true
+    tty: true
+
+  sidekiq:
+    build: .
+    command: bundle exec sidekiq
+    volumes:
+      - .:/app
+      - bundle_cache:/usr/local/bundle
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - RAILS_ENV=development
+      - SFTP_HOST=${SFTP_HOST:-localhost}
+      - SFTP_PORT=${SFTP_PORT:-22}
+      - SFTP_USERNAME=${SFTP_USERNAME:-user}
+      - SFTP_PASSWORD=${SFTP_PASSWORD:-password}
+      - SFTP_DEFAULT_DESTINATION=${SFTP_DEFAULT_DESTINATION:-/uploads}
+      - SFTP_TIMEOUT=${SFTP_TIMEOUT:-30}
+
+volumes:
+  redis_data:
+  bundle_cache:
