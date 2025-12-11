@@ -10,6 +10,7 @@ Rails.application.routes.draw do
       post :pause
       post :resume
       post :cancel
+      delete :destroy_file
     end
   end
 

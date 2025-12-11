@@ -75,11 +75,18 @@
       <% end %>
     <% end %>
 
-    <%= button_to download_path(download), method: :delete, class: 'btn btn-ghost btn-sm', data: { confirm: 'Are you sure?' }, form: { data: { turbo: false } } do %>
+    <%= button_to download_path(download), method: :delete, class: 'btn btn-ghost btn-sm', onclick: "return confirm('Are you sure you want to remove this record from history? The file will remain on the server.')" do %>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <path d="M3 4H13M5 4V3C5 2.5 5.5 2 6 2H10C10.5 2 11 2.5 11 3V4M6 7V11M10 7V11M4 4H12V13C12 13.5 11.5 14 11 14H5C4.5 14 4 13.5 4 13V4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
       </svg>
-      Delete
+      Delete Record
+    <% end %>
+
+    <%= button_to destroy_file_download_path(download), method: :delete, class: 'btn btn-danger btn-sm', onclick: "return confirm('⚠️ DANGER: Are you sure you want to PERMANENTLY DELETE this file and its folder from the server?\\n\\nThis action cannot be undone!')" do %>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 4H13M5 4V3C5 2.5 5.5 2 6 2H10C10.5 2 11 2.5 11 3V4M6 7V11M10 7V11M4 4H12V13C12 13.5 11.5 14 11 14H5C4.5 14 4 13.5 4 13V4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Permanent Delete
     <% end %>
   </div>
 </div>
