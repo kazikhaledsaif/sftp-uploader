@@ -65,6 +65,10 @@ Rails.application.configure do
   # Allow all hosts in development
   config.hosts.clear
   config.hosts << "k8.codesparks.me"
+  config.hosts << "sftp.codesparks.me"
+  
+  # Allow web console from any IP
+  config.web_console.permissions = '0.0.0.0/0'
 
   # Raise error when a before_action's only/except options reference missing actions
   config.action_controller.raise_on_missing_callback_actions = true

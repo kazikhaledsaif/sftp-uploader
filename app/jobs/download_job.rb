@@ -55,6 +55,8 @@ class DownloadJob < ApplicationJob
       # reader -> passed to SFTP upload
       # writer -> written to by HTTP download
       reader, writer = IO.pipe
+      reader.binmode
+      writer.binmode
       
       # Monkey-patch reader to look like a file with size (needed for SFTP progress)
       if total_size
@@ -67,7 +69,7 @@ class DownloadJob < ApplicationJob
         begin
           HTTParty.get(@download.url, stream_body: true, follow_redirects: true) do |fragment|
             # Write chunk to pipe (blocks if pipe is full, providing backpressure)
-            writer.write(fragment)
+            writer.write(fragment.force_encoding("BINARY"))
           end
         rescue => e
           Rails.logger.error "HTTP Download error: #{e.message}"
@@ -201,15 +203,5 @@ class DownloadJob < ApplicationJob
     }
   end
 
-  def ensure_remote_directory(sftp, path)
-    return if path == '/' || path == '.'
-    
-    begin
-      sftp.stat!(path)
-    rescue Net::SFTP::StatusException
-      # Directory doesn't exist, create it
-      ensure_remote_directory(sftp, File.dirname(path))
-      sftp.mkdir!(path)
-    end
-  end
+
 end

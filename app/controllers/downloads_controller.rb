@@ -57,7 +57,9 @@ class DownloadsController < ApplicationController
   def destroy_file
     # Only attempt SFTP deletion if we have a filename and path
     if @download.filename.present? && @download.destination_path.present?
-      config = YAML.load_file(Rails.root.join('config', 'sftp_config.yml'))[Rails.env]
+      config_file = Rails.root.join('config', 'sftp_config.yml')
+      yaml_content = ERB.new(File.read(config_file)).result
+      config = YAML.safe_load(yaml_content, aliases: true)[Rails.env]
       
       begin
         Net::SFTP.start(config['host'], config['username'], password: config['password'], port: config['port'] || 22, timeout: config['timeout'] || 30) do |sftp|
