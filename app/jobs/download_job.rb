@@ -162,8 +162,8 @@ class DownloadJob < ApplicationJob
   end
 
   def sanitize_folder_name(name)
-    # Replace invalid characters with underscore
-    name.gsub(%r{[\\/:*?"<>|]}, '_')
+    # Replace invalid characters and spaces with underscore
+    name.gsub(%r{[\s\\/:*?"<>|']}, '_')
   end
 
   def ensure_remote_directory(sftp, path)

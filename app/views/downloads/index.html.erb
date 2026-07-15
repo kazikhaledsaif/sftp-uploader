@@ -62,7 +62,10 @@
               </svg>
               Destination Path
             </label>
-            <%= f.text_field :destination_path, placeholder: '/home/user/uploads', class: 'form-input', required: true %>
+            <%= f.select :destination_path,
+                  [['Movies', '/mnt/media/movies/'], ['TV Series', '/mnt/media/tvseries/']],
+                  { prompt: 'Select destination…' },
+                  { class: 'form-input', required: true } %>
           </div>
         </div>
 

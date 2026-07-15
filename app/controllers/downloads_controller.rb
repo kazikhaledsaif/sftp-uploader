@@ -63,30 +63,32 @@ class DownloadsController < ApplicationController
       
       begin
         Net::SFTP.start(config['host'], config['username'], password: config['password'], port: config['port'] || 22, timeout: config['timeout'] || 30) do |sftp|
-          remote_path = File.join(@download.destination_path, @download.filename)
+          remote_folder = remote_upload_folder(@download)
           
           begin
-            # Try to stat the file to see if it exists
-            sftp.stat!(remote_path)
-            
-            # If we get here, file exists. Delete it.
-            sftp.remove!(remote_path)
-            
-            # Try to remove the directory (optional)
-            begin
-              sftp.rmdir!(@download.destination_path)
-            rescue Net::SFTP::StatusException
-              # Directory likely not empty or in use, ignore
+            # Ensure the folder exists and remove all files inside
+            sftp.stat!(remote_folder)
+            sftp.opendir!(remote_folder) do |handle|
+              loop do
+                entries = sftp.readdir!(handle)
+                break if entries.empty?
+
+                entries.each do |entry|
+                  next if %w[. ..].include?(entry.name)
+                  sftp.remove!(File.join(remote_folder, entry.name))
+                end
+              end
             end
-            
-            # If successful, destroy record
+
+            # Remove the now-empty folder
+            sftp.rmdir!(remote_folder)
+
             @download.destroy
             redirect_to downloads_url, notice: 'File and record permanently deleted.'
-            
+
           rescue Net::SFTP::StatusException => e
-            # File not found or other SFTP error
             if e.code == 2 # SSH_FX_NO_SUCH_FILE
-              redirect_to downloads_url, alert: 'Error: File not found on server.'
+              redirect_to downloads_url, alert: 'Error: File or folder not found on server.'
             else
               redirect_to downloads_url, alert: "SFTP Error: #{e.message}"
             end
@@ -98,6 +100,14 @@ class DownloadsController < ApplicationController
     else
       redirect_to downloads_url, alert: 'Cannot delete file: Filename or path missing.'
     end
+  end
+
+  private
+
+  def remote_upload_folder(download)
+    base_path = download.destination_path.chomp('/')
+    folder_name = sanitize_folder_name(download.filename)
+    File.join(base_path, folder_name)
   end
 
   # POST /downloads/:id/pause
