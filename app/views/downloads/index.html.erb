@@ -1,414 +1,291 @@
-<div class="app-container">
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-content">
-      <div class="logo">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="8" fill="url(#gradient)"/>
-          <path d="M16 8L22 14L16 20M10 14H22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <defs>
-            <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32">
-              <stop offset="0%" stop-color="#667eea"/>
-              <stop offset="100%" stop-color="#764ba2"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <h1>SFTP Uploader</h1>
-      </div>
-      <div class="header-stats">
-        <div class="stat">
-          <span class="stat-value"><%= @active_downloads %></span>
-          <span class="stat-label">Active</span>
-        </div>
-        <div class="stat">
-          <span class="stat-value"><%= @completed_downloads %></span>
-          <span class="stat-label">Completed</span>
-        </div>
+<header class="bar">
+  <div class="bar-inner">
+    <span class="wordmark"><i class="ph-fill ph-popcorn"></i> Popcorn</span>
+    <span class="bar-count"><span class="num" id="stat-active"><%= @active_downloads %></span> running</span>
+  </div>
+</header>
+
+<main class="page">
+  <% flash.each do |type, message| %>
+    <div class="flash flash-<%= type %>" role="status"><%= message %></div>
+  <% end %>
+
+  <%= form_with(model: Download.new, local: false, class: 'composer', id: 'new-download-form') do |f| %>
+    <div class="field">
+      <label for="download_url">Link</label>
+      <div class="with-action">
+        <%= f.url_field :url, placeholder: 'https://example.com/file.mkv', class: 'input', required: true,
+              inputmode: 'url', autocapitalize: 'off', autocorrect: 'off', spellcheck: false, autocomplete: 'off' %>
+        <button type="button" class="inline-action" id="paste-url" hidden><i class="ph ph-clipboard-text"></i> Paste</button>
       </div>
     </div>
-  </header>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Add New Download Card -->
-    <div class="card add-download-card">
-      <h2>Add New Download</h2>
-      <%= form_with(model: Download.new, local: false, class: 'download-form', id: 'new-download-form') do |f| %>
-        <div class="form-group">
-          <label for="download_url">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 13V3M10 13L7 10M10 13L13 10M3 17H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Download URL
+    <div class="field">
+      <label for="download_filename"><span id="name-label">Name</span> <span class="label-note" id="name-note">folder and file</span></label>
+      <%= f.text_field :filename, placeholder: 'Dangal (2016)', class: 'input', required: true,
+            autocomplete: 'off', enterkeyhint: 'done' %>
+    </div>
+
+    <fieldset class="field">
+      <legend>Save to</legend>
+      <div class="segmented">
+        <% @destinations.each_with_index do |(label, path), i| %>
+          <label>
+            <%= f.radio_button :destination_path, path, required: true, checked: i.zero?,
+                  data: { tv: Destinations.tv?(path) } %>
+            <span><%= label %></span>
           </label>
-          <%= f.text_field :url, placeholder: 'https://example.com/file.zip', class: 'form-input', required: true %>
-        </div>
+        <% end %>
+      </div>
+    </fieldset>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="download_filename">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M3 7V17C3 17.5 3.5 18 4 18H16C16.5 18 17 17.5 17 17V7M8 2H12L14 5H18C18.5 5 19 5.5 19 6V7H1V6C1 5.5 1.5 5 2 5H6L8 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Folder & File Name (Required)
-            </label>
-            <%= f.text_field :filename, placeholder: 'e.g., The Matrix (creates folder and renames file)', class: 'form-input', required: true %>
-          </div>
-
-          <div class="form-group">
-            <label for="download_destination_path">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M3 7V17C3 17.5 3.5 18 4 18H16C16.5 18 17 17.5 17 17V7M8 2H12L14 5H18C18.5 5 19 5.5 19 6V7H1V6C1 5.5 1.5 5 2 5H6L8 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Destination Path
-            </label>
-            <%= f.select :destination_path,
-                  [['Movies', '/mnt/media/movies/'], ['TV Series', '/mnt/media/tvseries/']],
-                  { prompt: 'Select destination…' },
-                  { class: 'form-input', required: true } %>
-          </div>
+    <div class="tv-fields" id="tv-fields" hidden>
+      <fieldset class="field">
+        <legend>What is it?</legend>
+        <div class="segmented">
+          <label><input type="radio" name="download[kind]" value="season" checked><span>Whole season</span></label>
+          <label><input type="radio" name="download[kind]" value="episode"><span>One episode</span></label>
         </div>
+      </fieldset>
 
-        <div class="form-actions">
-          <%= f.submit 'Start Download', class: 'btn btn-primary' %>
+      <div class="field-row">
+        <div class="field">
+          <label for="download_season">Season</label>
+          <input type="number" id="download_season" name="download[season]" class="input" min="0" max="99" value="1" inputmode="numeric">
         </div>
-      <% end %>
+        <div class="field" data-kind="episode" hidden>
+          <label for="download_episode">Episode</label>
+          <input type="number" id="download_episode" name="download[episode]" class="input" min="1" max="999" inputmode="numeric">
+        </div>
+        <div class="field" data-kind="season">
+          <label for="download_episode_count">Episodes <span class="label-note">optional</span></label>
+          <input type="number" id="download_episode_count" name="download[episode_count]" class="input" min="1" max="999" inputmode="numeric" placeholder="e.g. 8">
+        </div>
+      </div>
     </div>
 
-    <!-- Downloads List -->
-    <div class="downloads-section">
-      <h2>Downloads</h2>
-      
-      <% if @downloads.any? %>
-        <div class="downloads-grid">
-          <% @downloads.each do |download| %>
+    <p class="form-error" id="form-error" role="alert" hidden></p>
+
+    <button type="submit" class="primary" id="submit-download">Start download</button>
+  <% end %>
+
+  <div class="lists">
+    <% if @downloads.empty? %>
+      <div class="empty">
+        <i class="ph ph-tray"></i>
+        <p>Nothing here yet. Paste a link to start your first download.</p>
+      </div>
+    <% end %>
+
+    <% if @running.any? %>
+      <section aria-labelledby="running-title">
+        <h2 class="list-title" id="running-title">Downloading</h2>
+        <ul class="dl-list">
+          <% @running.each do |download| %>
             <%= render 'download_card', download: download %>
           <% end %>
-        </div>
-      <% else %>
-        <div class="empty-state">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
-            <path d="M32 20V44M32 44L24 36M32 44L40 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <h3>No downloads yet</h3>
-          <p>Add a download URL above to get started</p>
-        </div>
-      <% end %>
-    </div>
-  </main>
-</div>
+        </ul>
+      </section>
+    <% end %>
 
-<style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  :root {
-    --primary: #667eea;
-    --primary-dark: #5568d3;
-    --secondary: #764ba2;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --text-primary: #f1f5f9;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
-    --border: #334155;
-    --shadow: rgba(0, 0, 0, 0.3);
-  }
-
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: var(--text-primary);
-    min-height: 100vh;
-    line-height: 1.6;
-  }
-
-  .app-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-
-  /* Header */
-  .app-header {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 6px var(--shadow);
-  }
-
-  .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .logo h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .header-stats {
-    display: flex;
-    gap: 2rem;
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .stat-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--primary);
-  }
-
-  .stat-label {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  /* Main Content */
-  .main-content {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-  }
-
-  /* Card */
-  .card {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 2rem;
-    box-shadow: 0 4px 6px var(--shadow);
-    transition: all 0.3s ease;
-  }
-
-  .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 12px var(--shadow);
-  }
-
-  .card h2 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
-
-  /* Form */
-  .download-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .form-group label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-  }
-
-  .form-input {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    color: var(--text-primary);
-    transition: all 0.2s ease;
-    font-family: inherit;
-  }
-
-  .form-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  }
-
-  .form-input::placeholder {
-    color: var(--text-muted);
-  }
-
-  /* Buttons */
-  .btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: inherit;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-  }
-
-  .btn-primary {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-    color: white;
-    box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
-  }
-
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
-  }
-
-  .btn-primary:active {
-    transform: translateY(0);
-  }
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  /* Downloads Section */
-  .downloads-section h2 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
-
-  .downloads-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
-  }
-
-  /* Empty State */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 2rem;
-    text-align: center;
-    color: var(--text-muted);
-  }
-
-  .empty-state svg {
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-
-  .empty-state h3 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--text-secondary);
-  }
-
-  .empty-state p {
-    font-size: 0.875rem;
-  }
-
-  /* Responsive */
-  @media (max-width: 768px) {
-    .app-container {
-      padding: 1rem;
-    }
-
-    .header-content {
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .form-row {
-      grid-template-columns: 1fr;
-    }
-
-    .downloads-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
+    <% if @history.any? %>
+      <section aria-labelledby="history-title">
+        <h2 class="list-title" id="history-title">History</h2>
+        <ul class="dl-list">
+          <% @history.each do |download| %>
+            <%= render 'download_card', download: download %>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+  </div>
+</main>
 
 <script>
-  // Handle form submission via AJAX
+  // Live progress: poll /downloads/status while anything is running.
+  (() => {
+    const ACTIVE = ['pending', 'downloading', 'paused'];
+    let timer = null;
+
+    const hasActiveRows = () =>
+      [...document.querySelectorAll('.dl')].some(r => ACTIVE.includes(r.dataset.status));
+
+    // Don't reload under someone who is typing or has a sheet open.
+    const busy = () => document.querySelector('dialog[open]') ||
+      ['download_url', 'download_filename'].some(id => document.getElementById(id).value);
+
+    async function poll() {
+      try {
+        const res = await fetch('/downloads/status', { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('stat-active').textContent = data.active;
+
+        for (const d of data.downloads) {
+          const row = document.querySelector(`.dl[data-download-id="${d.id}"]`);
+          if (!row) continue;
+          if (row.dataset.status !== d.status) {
+            if (!busy()) { window.location.reload(); return; }
+            continue;
+          }
+          const bar = row.querySelector('.dl-bar');
+          if (bar) { bar.firstElementChild.style.width = `${d.progress}%`; bar.setAttribute('aria-valuenow', d.progress); }
+          const set = (sel, text) => { const el = row.querySelector(sel); if (el) el.textContent = text; };
+          set('.dl-pct', `${d.progress}%`);
+          set('.dl-speed', d.speed || '');
+          set('.dl-eta', d.eta ? `${d.eta} left` : '');
+        }
+      } catch (e) {
+        console.warn('Status poll failed', e);
+      }
+      if (!hasActiveRows()) { clearInterval(timer); timer = null; }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (hasActiveRows()) timer = setInterval(poll, 2000);
+    });
+  })();
+
+  // Bottom sheets for each row's extra actions.
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-sheet]').forEach(btn => btn.addEventListener('click', () => {
+      document.getElementById(btn.dataset.sheet).showModal();
+    }));
+    document.querySelectorAll('dialog.sheet').forEach(sheet => {
+      sheet.querySelector('[data-close]').addEventListener('click', () => sheet.close());
+      // Tap on the dimmed backdrop closes the sheet.
+      sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); });
+    });
+  });
+
+  // New download form
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('new-download-form');
-    
+    const url = document.getElementById('download_url');
+    const name = document.getElementById('download_filename');
+    const errorBox = document.getElementById('form-error');
+    const submit = document.getElementById('submit-download');
+    const pasteBtn = document.getElementById('paste-url');
+    const DEST_KEY = 'downloader.destination';
+
+    // Remember the last destination picked.
+    try {
+      const saved = localStorage.getItem(DEST_KEY);
+      const radio = saved && form.querySelector(`input[name="download[destination_path]"][value="${CSS.escape(saved)}"]`);
+      if (radio) radio.checked = true;
+    } catch (_) {}
+
+    // TV fields: shown only when a TV destination is picked.
+    const tvFields = document.getElementById('tv-fields');
+    const destRadios = [...form.querySelectorAll('input[name="download[destination_path]"]')];
+    const kindRadios = [...form.querySelectorAll('input[name="download[kind]"]')];
+    const season = document.getElementById('download_season');
+    const episode = document.getElementById('download_episode');
+    const episodeCount = document.getElementById('download_episode_count');
+    const isTv = () => destRadios.find(r => r.checked)?.dataset.tv === 'true';
+    const kind = () => isTv() ? kindRadios.find(r => r.checked).value : 'movie';
+
+    const syncTvFields = () => {
+      tvFields.hidden = !isTv();
+      form.querySelectorAll('[data-kind]').forEach(el => { el.hidden = el.dataset.kind !== kind(); });
+      season.required = isTv();
+      episode.required = kind() === 'episode';
+      document.getElementById('name-label').textContent = isTv() ? 'Show name' : 'Name';
+      document.getElementById('name-note').textContent = isTv() ? '' : 'folder and file';
+      name.placeholder = isTv() ? 'Panchayat (2020)' : 'Dangal (2016)';
+    };
+    [...destRadios, ...kindRadios].forEach(r => r.addEventListener('change', syncTvFields));
+
+    // "Dangal.2016.1080p.WEB" -> "Dangal (2016)"; "Some_Show" -> "Some Show"
+    const tidy = (text) => {
+      const t = text.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
+      const y = t.match(/^(.*?)[\s(\[-]*((?:19|20)\d{2})(?:[\s)\]-]|$)/);
+      return y && y[1].trim() ? `${y[1].trim()} (${y[2]})` : t;
+    };
+
+    // Read the link's file name: fills the name and, for "Show.S03E02" or
+    // "Show.S03" / "Show Season 3", switches to TV with season/episode set.
+    const readLink = () => {
+      let base;
+      try {
+        base = decodeURIComponent(new URL(url.value.trim()).pathname.split('/').pop() || '');
+      } catch (_) { return; }
+      base = base.replace(/\.[a-z0-9]{2,4}$/i, '');
+      const tv = base.match(/^(.*?)[\s._-]+S(\d{1,2})(?:[\s._-]?E(\d{1,3}))?(?![a-z0-9])/i) ||
+                 base.match(/^(.*?)[\s._-]+Season[\s._-]?(\d{1,2})(?![0-9])/i);
+      if (tv) {
+        if (!isTv()) { const r = destRadios.find(r => r.dataset.tv === 'true'); if (r) r.checked = true; }
+        season.value = parseInt(tv[2], 10);
+        const ep = tv[3] ? parseInt(tv[3], 10) : null;
+        kindRadios.find(r => r.value === (ep ? 'episode' : 'season')).checked = true;
+        if (ep) episode.value = ep;
+        if (!name.value.trim()) name.value = tidy(tv[1]);
+      } else if (!name.value.trim() && base) {
+        name.value = tidy(base);
+      }
+      syncTvFields();
+    };
+    const suggestName = readLink;
+    syncTvFields();
+    url.addEventListener('change', suggestName);
+    url.addEventListener('paste', () => setTimeout(suggestName, 0));
+
+    // Paste button: only where the browser allows reading the clipboard (HTTPS or localhost).
+    if (navigator.clipboard && navigator.clipboard.readText && window.isSecureContext) {
+      pasteBtn.hidden = false;
+      pasteBtn.addEventListener('click', async () => {
+        try {
+          url.value = (await navigator.clipboard.readText()).trim();
+          suggestName();
+          name.focus();
+        } catch (_) { url.focus(); }
+      });
+    }
+
+    const showError = msg => { errorBox.textContent = msg; errorBox.hidden = false; };
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
+      errorBox.hidden = true;
+
       const formData = new FormData(form);
-      const data = {
-        download: {
-          url: formData.get('download[url]'),
-          filename: formData.get('download[filename]'),
-          destination_path: formData.get('download[destination_path]')
-        }
-      };
-      
+      const destination = formData.get('download[destination_path]');
+      try { localStorage.setItem(DEST_KEY, destination); } catch (_) {}
+
+      submit.disabled = true;
+      submit.textContent = 'Starting...';
       try {
         const response = await fetch('/downloads', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
           },
-          body: JSON.stringify(data)
+          body: JSON.stringify({
+            download: {
+              url: formData.get('download[url]'),
+              filename: formData.get('download[filename]'),
+              destination_path: destination,
+              kind: kind(),
+              season: isTv() ? season.value : null,
+              episode: kind() === 'episode' ? episode.value : null,
+              episode_count: kind() === 'season' ? episodeCount.value : null
+            }
+          })
         });
-        
+
         if (response.ok) {
-          // Reload page to show new download
           window.location.reload();
-        } else {
-          const error = await response.json();
-          alert('Error: ' + (error.errors || 'Failed to create download'));
+          return;
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to create download');
+        const error = await response.json().catch(() => ({}));
+        showError(error.errors || `The download could not be started (error ${response.status}).`);
+      } catch (_) {
+        showError('Could not reach the server. Check your connection and try again.');
       }
+      submit.disabled = false;
+      submit.textContent = 'Start download';
     });
   });
 </script>

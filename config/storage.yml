@@ -1,0 +1,8 @@
+# Required by Active Storage (loaded via rails/all) even though the app stores no uploads.
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>

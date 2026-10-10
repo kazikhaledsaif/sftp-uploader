@@ -45,11 +45,8 @@ Rails.application.configure do
   # want to log everything, set the level to "debug".
   config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
 
-  # Use a different cache store in production.
-  config.cache_store = :redis_cache_store, { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1") }
+  config.cache_store = :memory_store
 
-  # Use a real queuing backend for Active Job (and separate queues per environment).
-  config.active_job.queue_adapter = :sidekiq
   # config.active_job.queue_name_prefix = "ftp_uploder_production"
 
   config.action_mailer.perform_caching = false
@@ -76,7 +73,10 @@ Rails.application.configure do
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
   
-  # Allow all hosts in production (since we're behind Nginx/Docker)
+  # Which hostnames may reach the app. Comma-separated, e.g.
+  #   APP_HOSTS=downloads.home,192.168.1.105,k8.codesparks.me
+  # Leave empty to allow any host (fine on a private LAN).
   config.hosts.clear
-  config.hosts << "k8.codesparks.me"
+  ENV.fetch("APP_HOSTS", "").split(",").map(&:strip).reject(&:empty?).each { |h| config.hosts << h }
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

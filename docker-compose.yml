@@ -1,56 +1,53 @@
-services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+# Homelab deployment: Rails app + aria2, no Redis/Sidekiq needed.
+#
+#   cp .env.example .env   # then fill in AUTH_*, SECRET_KEY_BASE, ARIA2_RPC_SECRET, MEDIA_ROOT
+#   docker compose up -d --build
+#
+# MEDIA_ROOT is the folder on this machine that holds your media folders (Movies/, TV/, Downloads/...).
+# It is mounted as /data, so any folder listed in DOWNLOAD_DESTINATIONS just works.
+# All containers show up under one "sftp-downloader" group in Docker.
+name: sftp-downloader
 
+services:
   web:
     build: .
-    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails server -b 0.0.0.0"
-    volumes:
-      - .:/app
-      - bundle_cache:/usr/local/bundle
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RAILS_ENV: production
+      DOWNLOAD_ENGINE: aria2
+      ARIA2_RPC_URL: http://aria2:6800/jsonrpc
+      DATABASE_PATH: /app/storage/production.sqlite3
+      WEB_CONCURRENCY: "0"      # single Puma process: saves RAM
+      RAILS_MAX_THREADS: "5"
     ports:
-      - "3000:3000"
-    depends_on:
-      - redis
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - RAILS_ENV=development
-      - SFTP_HOST=${SFTP_HOST:-localhost}
-      - SFTP_PORT=${SFTP_PORT:-22}
-      - SFTP_USERNAME=${SFTP_USERNAME:-user}
-      - SFTP_PASSWORD=${SFTP_PASSWORD:-password}
-      - SFTP_DEFAULT_DESTINATION=${SFTP_DEFAULT_DESTINATION:-/uploads}
-      - SFTP_TIMEOUT=${SFTP_TIMEOUT:-30}
-    stdin_open: true
-    tty: true
-
-  sidekiq:
-    build: .
-    command: bundle exec sidekiq
+      - "${APP_PORT:-3000}:3000"
     volumes:
-      - .:/app
-      - bundle_cache:/usr/local/bundle
+      - app_storage:/app/storage
+      - ${MEDIA_ROOT:?Set MEDIA_ROOT in .env}:/data
     depends_on:
-      - redis
+      - aria2
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  aria2:
+    build: ./docker/aria2
+    restart: unless-stopped
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - RAILS_ENV=development
-      - SFTP_HOST=${SFTP_HOST:-localhost}
-      - SFTP_PORT=${SFTP_PORT:-22}
-      - SFTP_USERNAME=${SFTP_USERNAME:-user}
-      - SFTP_PASSWORD=${SFTP_PASSWORD:-password}
-      - SFTP_DEFAULT_DESTINATION=${SFTP_DEFAULT_DESTINATION:-/uploads}
-      - SFTP_TIMEOUT=${SFTP_TIMEOUT:-30}
+      ARIA2_RPC_SECRET: ${ARIA2_RPC_SECRET:?Set ARIA2_RPC_SECRET in .env}
+      ARIA2_CONNECTIONS: ${ARIA2_CONNECTIONS:-16}
+      ARIA2_MAX_CONCURRENT: ${ARIA2_MAX_CONCURRENT:-5}
+      ARIA2_SPEED_LIMIT: ${ARIA2_SPEED_LIMIT:-0}
+      ARIA2_DISK_CACHE: ${ARIA2_DISK_CACHE:-64M}
+      ARIA2_FILE_ALLOCATION: ${ARIA2_FILE_ALLOCATION:-falloc}
+    # No "ports:" on purpose: only the web container can talk to aria2.
+    volumes:
+      - aria2_session:/session
+      - ${MEDIA_ROOT}:/data
 
 volumes:
-  redis_data:
-  bundle_cache:
+  app_storage:
+  aria2_session:

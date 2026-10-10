@@ -57,3 +57,6 @@ yarn-debug.log*
 *.swo
 *~
 .DS_Store
+
+# Local test media folder (MEDIA_ROOT=./media)
+/media

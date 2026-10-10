@@ -1,14 +1,14 @@
 # Use official Ruby image
-FROM ruby:3.2.0-slim
+# Debian bookworm base (the old 3.2.0 image was on bullseye, whose apt mirrors are gone)
+FROM ruby:3.2-slim-bookworm
 
 # Install dependencies
 RUN apt-get update -qq && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
-    nodejs \
     sqlite3 \
     libsqlite3-dev \
+    libyaml-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,11 +22,11 @@ RUN bundle install
 # Copy application code
 COPY . .
 
-# Precompile assets (if needed in production)
-# RUN RAILS_ENV=production bundle exec rails assets:precompile
+# Precompile assets for production (no real secrets needed at build time)
+RUN SECRET_KEY_BASE_DUMMY=1 RAILS_ENV=production bundle exec rails assets:precompile
 
-# Create necessary directories
-RUN mkdir -p tmp/pids tmp/cache tmp/sockets log
+# Create necessary directories (storage/ holds the production SQLite database)
+RUN mkdir -p tmp/pids tmp/cache tmp/sockets log storage
 
 # Expose port
 EXPOSE 3000

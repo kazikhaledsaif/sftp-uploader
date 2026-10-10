@@ -26,20 +26,8 @@ gem "stimulus-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
-# Use Redis adapter to run Action Cable in production
-gem "redis", "~> 5.0"
-
-# Background Jobs
-gem "sidekiq", "~> 7.0"
-
-# SFTP
-gem "net-sftp", "~> 4.0"
-
 # HTTP Client
 gem "httparty", "~> 0.21"
-
-# Use Kredis to get higher-level data types in Redis [https://github.com/rails/kredis]
-# gem "kredis"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

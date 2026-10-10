@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_01_01_000000) do
+ActiveRecord::Schema[7.1].define(version: 2026_10_10_000002) do
   create_table "downloads", force: :cascade do |t|
     t.string "url", null: false
     t.string "filename"
@@ -21,7 +21,16 @@ ActiveRecord::Schema[7.1].define(version: 2025_01_01_000000) do
     t.bigint "file_size"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "gid"
+    t.string "output_name"
+    t.bigint "download_speed", default: 0
+    t.integer "retries", default: 0, null: false
+    t.string "kind", default: "movie", null: false
+    t.integer "season"
+    t.integer "episode"
+    t.integer "episode_count"
     t.index ["created_at"], name: "index_downloads_on_created_at"
+    t.index ["gid"], name: "index_downloads_on_gid"
     t.index ["status"], name: "index_downloads_on_status"
   end
 

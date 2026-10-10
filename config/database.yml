@@ -7,10 +7,8 @@
 default: &default
   adapter: sqlite3
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  timeout: 10000
-  variables:
-    journal_mode: WAL
-    busy_timeout: 10000
+  # WAL is on by default in Rails 7.1. Waiting for a busy database is handled in
+  # config/initializers/sqlite_busy_handler.rb (it does not block other threads).
 
 development:
   <<: *default
@@ -25,4 +23,4 @@ test:
 
 production:
   <<: *default
-  database: db/production.sqlite3
+  database: <%= ENV.fetch("DATABASE_PATH", "db/production.sqlite3") %>

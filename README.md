@@ -1,188 +1,57 @@
-# SFTP File Uploader
+# Popcorn
 
-A modern web application for downloading files from URLs and uploading them to an SFTP server with real-time progress tracking.
+A small web app for your homelab (downloader now, watch tracker next): paste a link on your phone, pick a folder
+(Movies, TV Series, Downloads…), and **aria2** downloads it straight into your
+media folders, using many connections per file and several downloads at once.
 
-## Features
+- Mobile-first page with live progress, speed and time left
+- Pause, resume, retry, cancel, remove from list, delete file
+- Downloads queue when the limit is reached; "too many requests" (HTTP 429/503)
+  answers are retried automatically with a growing wait
+- Survives restarts (aria2 keeps its session; the history is in SQLite)
+- Only plain HTTP/HTTPS links; torrents and metalinks are rejected
 
-✅ **Easy File Downloads** - Paste any URL and download to your SFTP server  
-✅ **Real-time Progress** - Watch download and upload progress in real-time  
-✅ **Pause/Resume** - Pause and resume downloads at any time  
-✅ **Cancel Downloads** - Stop unwanted downloads  
-✅ **Configurable Paths** - Set custom destination paths for each download  
-✅ **Background Processing** - Uses Sidekiq for efficient background jobs  
-✅ **Beautiful UI** - Modern, responsive interface with dark theme  
-✅ **Download History** - Track all your downloads with status indicators  
+## Quick start (Docker)
 
-## Quick Start
-
-### Development (Local)
-
-1. **Install dependencies:**
-   ```bash
-   bundle install
-   ```
-
-2. **Setup database:**
-   ```bash
-   rails db:migrate
-   ```
-
-3. **Configure SFTP settings:**
-   Create `.env` file:
-   ```bash
-   cp .env.example .env
-   nano .env  # Add your SFTP credentials
-   ```
-
-4. **Start Redis:**
-   ```bash
-   brew services start redis  # macOS
-   # or
-   sudo systemctl start redis  # Linux
-   ```
-
-5. **Start the application:**
-   ```bash
-   chmod +x start.sh
-   ./start.sh
-   ```
-
-6. **Access the app:**
-   Open http://localhost:3000 in your browser
-
-### Production (Home Server)
-
-**One-command deployment:**
-```bash
-./deploy.sh
-```
-
-Or manually with Docker:
 ```bash
 cp .env.example .env
-nano .env  # Configure your SFTP credentials
-docker-compose up -d
+nano .env          # AUTH_*, SECRET_KEY_BASE, ARIA2_RPC_SECRET, MEDIA_ROOT
+docker compose up -d --build
 ```
 
-**See detailed guide:**
-- 🏠 [Home Server Deployment](HOME_SERVER_DEPLOY.md)
+Open `http://<server-ip>:3000` and log in. Both containers (`web` and `aria2`)
+show up as one `sftp-downloader` group in Docker.
 
+`MEDIA_ROOT` is the folder on the server that holds your media folders. It is
+mounted in the containers as `/data`, so the "Save to" choices point at
+`/data/Movies`, `/data/TV` and so on. Change them with `DOWNLOAD_DESTINATIONS`.
 
-## Usage
+Full setup on Proxmox (and saving to a Samba share): see [HOMELAB.md](HOMELAB.md).
+All settings are listed in [.env.example](.env.example).
 
-1. **Add a Download:**
-   - Paste the download URL
-   - Optionally set a custom filename
-   - Set the destination path on your SFTP server
-   - Click "Start Download"
+## How it works
 
-2. **Monitor Progress:**
-   - Watch real-time progress bars
-   - See download status (pending, downloading, completed, etc.)
-   - View file size and creation time
-
-3. **Manage Downloads:**
-   - **Pause** - Temporarily stop a download
-   - **Resume** - Continue a paused download
-   - **Cancel** - Stop and remove a download
-   - **Delete** - Remove from history
-
-## Architecture
-
-- **Backend**: Ruby on Rails 7.1
-- **Background Jobs**: Sidekiq with Redis
-- **SFTP**: Net::SFTP gem
-- **HTTP Client**: HTTParty
-- **Database**: SQLite3
-- **Frontend**: HTML, CSS, JavaScript (no framework needed)
-
-## Configuration
-
-### SFTP Settings
-
-Edit `config/sftp_config.yml`:
-
-```yaml
-development:
-  host: "localhost"          # SFTP server hostname
-  port: 22                   # SFTP port
-  username: "user"           # SFTP username
-  password: "pass"           # SFTP password
-  default_destination: "/uploads"  # Default upload path
-  timeout: 30                # Connection timeout
+```text
+Phone ──▶ web (Rails 7.1, SQLite) ──JSON-RPC──▶ aria2 (not exposed)
+                    │                              │
+                    └──────── MEDIA_ROOT → /data ──┘
 ```
 
-### Environment Variables
+The web container asks aria2 for progress every few seconds (in the background,
+so retries and completions are picked up even with the page closed) and stores
+it in SQLite with a single writer, so many downloads at once don't lock the database.
 
-You can also use environment variables:
+## Useful commands
 
 ```bash
-export REDIS_URL="redis://localhost:6379/0"
-export SFTP_HOST="your.server.com"
-export SFTP_USERNAME="username"
-export SFTP_PASSWORD="password"
+docker compose ps                 # status
+docker compose logs -f web        # app logs
+docker compose logs -f aria2      # download engine logs
+docker compose up -d --build      # update after pulling changes
 ```
 
-## Deployment
-
-### Using Docker (Recommended)
-
-Create a `Dockerfile`:
-
-```dockerfile
-FROM ruby:3.2
-WORKDIR /app
-COPY Gemfile* ./
-RUN bundle install
-COPY . .
-RUN rails db:migrate
-CMD ["./start.sh"]
-```
-
-### Manual Deployment
-
-1. Set up production database
-2. Configure production SFTP settings
-3. Set environment variables
-4. Run migrations
-5. Start services with systemd or similar
-
-## Troubleshooting
-
-**Redis connection error:**
-```bash
-brew services restart redis
-```
-
-**SFTP connection failed:**
-- Check your SFTP credentials in `config/sftp_config.yml`
-- Ensure the SFTP server is accessible
-- Verify the destination path exists
-
-**Downloads stuck:**
-- Check Sidekiq is running
-- View Sidekiq dashboard at http://localhost:3000/sidekiq
-- Check logs in `log/development.log`
-
-## Development
-
-**View logs:**
-```bash
-tail -f log/development.log
-```
-
-**Rails console:**
-```bash
-rails console
-```
-
-**Check Sidekiq jobs:**
-Visit http://localhost:3000/sidekiq
+Health check (for Uptime Kuma): `http://<server-ip>:3000/up` (no login).
 
 ## License
 
 MIT
-
-## Support
-
-For issues or questions, check the logs or open an issue.

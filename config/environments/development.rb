@@ -67,9 +67,11 @@ Rails.application.configure do
   config.hosts << "k8.codesparks.me"
   config.hosts << "sftp.codesparks.me"
   
-  # Allow web console from any IP
-  config.web_console.permissions = '0.0.0.0/0'
+  # Web console (a Ruby shell on error pages) stays limited to localhost.
+  # Do NOT open it to 0.0.0.0/0: anyone who can reach the app could run code on the server.
+  # To use it from your Mac against Docker, allow only the Docker network, e.g.:
+  # config.web_console.permissions = '172.16.0.0/12'
 
   # Raise error when a before_action's only/except options reference missing actions
-  config.action_controller.raise_on_missing_callback_actions = true
+  config.action_controller.raise_on_missing_callback_actions = false
 end
