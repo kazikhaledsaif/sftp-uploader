@@ -7,6 +7,7 @@
 # Safe to run again: existing answers in .env are kept, missing ones are filled.
 # Non-interactive: set POPCORN_YES=1 and pass values as environment variables
 # (AUTH_USERNAME, AUTH_PASSWORD, MEDIA_ROOT, APP_PORT, TIME_ZONE, TMDB_API_KEY).
+# Without AUTH_USERNAME there is no login.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -68,9 +69,15 @@ fi
 say "Popcorn setup (press Enter to keep the value in brackets)"
 detected_tz=$(cat /etc/timezone 2>/dev/null || timedatectl show -p Timezone --value 2>/dev/null || echo UTC)
 
-ask AUTH_USERNAME "Login username" "admin"
-ask AUTH_PASSWORD "Login password" "" secret
-[[ -n "$(get_env AUTH_PASSWORD)" ]] || fail "A login password is required."
+ask AUTH_USERNAME "Login username (leave empty for no login)" ""
+if [[ -n "$(get_env AUTH_USERNAME)" ]]; then
+  ask AUTH_PASSWORD "Login password" "" secret
+  [[ -n "$(get_env AUTH_PASSWORD)" ]] || fail "Set a password, or leave the username empty for no login."
+  set_env ALLOW_NO_AUTH false
+else
+  set_env AUTH_PASSWORD ""
+  set_env ALLOW_NO_AUTH true
+fi
 ask MEDIA_ROOT "Folder that holds Movies/, TV/ and Downloads/" "/mnt/storage"
 ask APP_PORT "Port for the web page" "9000"
 ask TIME_ZONE "Time zone" "$detected_tz"
@@ -104,4 +111,5 @@ echo
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 [[ -n "$ip" ]] || ip=$(ipconfig getifaddr en0 2>/dev/null || echo "<server-ip>")
 say "Popcorn is running: http://$ip:$(get_env APP_PORT)"
-echo "Log in as $(get_env AUTH_USERNAME). Update later with: bin/update"
+if [[ -n "$(get_env AUTH_USERNAME)" ]]; then echo "Log in as $(get_env AUTH_USERNAME)."; else echo "No login: anyone on your home network can open it."; fi
+echo "Update later with: bin/update"

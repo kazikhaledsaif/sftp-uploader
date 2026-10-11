@@ -47,7 +47,7 @@ bin/setup
 
 `bin/setup` asks for:
 
-- login username and password
+- a login (press Enter for **no login**: anyone on your home network can open it)
 - the media folder (`/mnt/storage`)
 - the port (`9000`)
 - your time zone
@@ -105,7 +105,8 @@ docker compose start web
 
 | Variable | Default | What it does |
 |---|---|---|
-| `AUTH_USERNAME` / `AUTH_PASSWORD` | | Login for the web page |
+| `AUTH_USERNAME` / `AUTH_PASSWORD` | (empty) | Login for the web page; empty = no login |
+| `ALLOW_NO_AUTH` | `true` | Must be `true` when there is no login |
 | `MEDIA_ROOT` | `/mnt/storage` | Folder with Movies/, TV/, Downloads/ (mounted as `/data`) |
 | `APP_PORT` | `9000` | Port of the web page |
 | `TIME_ZONE` | `UTC` | For "watched on" dates, e.g. `Asia/Kolkata` |
