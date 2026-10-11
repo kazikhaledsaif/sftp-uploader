@@ -60,11 +60,11 @@ services:
     command:
       - |
         while true; do
-          if [ -f /storage/production.sqlite3 ]; then
-            f="/backups/popcorn-$$(date +%F).sqlite3"
-            sqlite3 /storage/production.sqlite3 ".backup '$$f'" && echo "backup saved: $$f"
-            find /backups -name 'popcorn-*.sqlite3' -mtime +$${BACKUP_KEEP_DAYS:-14} -delete
-          fi
+          # A fresh install has no database until the app starts: check again soon.
+          if [ ! -f /storage/production.sqlite3 ]; then sleep 60; continue; fi
+          f="/backups/popcorn-$$(date +%F).sqlite3"
+          sqlite3 /storage/production.sqlite3 ".backup '$$f'" && echo "backup saved: $$f"
+          find /backups -name 'popcorn-*.sqlite3' -mtime +$${BACKUP_KEEP_DAYS:-14} -delete
           sleep 86400
         done
     environment:
