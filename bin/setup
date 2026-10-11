@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# One-time setup for Popcorn on a server with Docker.
+#
+#   bin/setup              asks a few questions, then starts Popcorn
+#   bin/setup --no-start   only writes .env and creates the media folders
+#
+# Safe to run again: existing answers in .env are kept, missing ones are filled.
+# Non-interactive: set POPCORN_YES=1 and pass values as environment variables
+# (AUTH_USERNAME, AUTH_PASSWORD, MEDIA_ROOT, APP_PORT, TIME_ZONE, TMDB_API_KEY).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+START=1
+[[ "${1:-}" == "--no-start" ]] && START=0
+ASK=1
+[[ "${POPCORN_YES:-}" == "1" || ! -t 0 ]] && ASK=0
+
+say()  { printf '\033[1m%s\033[0m\n' "$*"; }
+fail() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
+
+# Current value of KEY in .env (empty if missing or still a placeholder).
+get_env() {
+  local v
+  v=$(grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  [[ "$v" == \'*\' ]] && v="${v:1:${#v}-2}"   # stored quoted (see set_env)
+  [[ "$v" == "change_me" ]] && v=""
+  printf '%s' "$v"
+}
+
+# Write KEY=VALUE into .env (replaces the line, or appends it). Values may
+# contain any characters, so they are passed through the environment.
+# Docker reads " #" as a comment and "$" as a variable, so such values are
+# written in single quotes (taken literally). A single quote itself cannot be.
+set_env() {
+  local value="$2"
+  [[ "$value" == *"'"* ]] && fail "$1 cannot contain a single quote (')."
+  [[ "$value" =~ [[:space:]\#\$\"\\\`] ]] && value="'$value'"
+  K="$1" V="$value" awk 'BEGIN { k = ENVIRON["K"]; v = ENVIRON["V"] }
+    index($0, k "=") == 1 { if (!done) print k "=" v; done = 1; next }
+    { print }
+    END { if (!done) print k "=" v }' .env > .env.tmp && mv .env.tmp .env
+}
+
+# ask KEY "Question" default [secret]
+ask() {
+  local key="$1" question="$2" default="$3" secret="${4:-}" current answer
+  current="${!key:-$(get_env "$key")}"      # from the environment, else what .env already has
+  if [[ -n "$current" && "$ASK" == "0" ]]; then set_env "$key" "$current"; return; fi
+  if [[ "$ASK" == "0" ]]; then set_env "$key" "$default"; return; fi
+  local shown="${current:-$default}"
+  [[ -n "$secret" && -n "$current" ]] && shown="(keep current)"
+  if [[ -n "$secret" ]]; then
+    read -r -s -p "$question [$shown]: " answer; echo
+  else
+    read -r -p "$question [$shown]: " answer
+  fi
+  set_env "$key" "${answer:-${current:-$default}}"
+}
+
+command -v docker >/dev/null || fail "Docker is not installed. See https://docs.docker.com/engine/install/"
+docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is missing (the 'docker compose' command)."
+
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+  say "Created .env from .env.example"
+fi
+
+say "Popcorn setup (press Enter to keep the value in brackets)"
+detected_tz=$(cat /etc/timezone 2>/dev/null || timedatectl show -p Timezone --value 2>/dev/null || echo UTC)
+
+ask AUTH_USERNAME "Login username" "admin"
+ask AUTH_PASSWORD "Login password" "" secret
+[[ -n "$(get_env AUTH_PASSWORD)" ]] || fail "A login password is required."
+ask MEDIA_ROOT "Folder that holds Movies/, TV/ and Downloads/" "/mnt/storage"
+ask APP_PORT "Port for the web page" "9000"
+ask TIME_ZONE "Time zone" "$detected_tz"
+ask TMDB_API_KEY "TMDB key for posters (optional, Enter to skip)" ""
+
+# Secrets nobody needs to type.
+[[ -n "$(get_env SECRET_KEY_BASE)" ]] || set_env SECRET_KEY_BASE "$(openssl rand -hex 64)"
+[[ -n "$(get_env ARIA2_RPC_SECRET)" ]] || set_env ARIA2_RPC_SECRET "$(openssl rand -hex 24)"
+chmod 600 .env
+
+media=$(get_env MEDIA_ROOT)
+mkdir -p "$media/Movies" "$media/TV" "$media/Downloads" || fail "Could not create folders in $media"
+mkdir -p "$(get_env BACKUP_DIR || true)" 2>/dev/null || mkdir -p backups
+say "Media folders ready in $media"
+
+if [[ "$START" == "0" ]]; then
+  say "Setup written to .env (not started: --no-start)."
+  exit 0
+fi
+
+say "Building and starting Popcorn (first time takes a few minutes)..."
+docker compose up -d --build
+
+printf 'Waiting for Popcorn to be ready'
+for _ in $(seq 1 60); do
+  if docker compose ps --format '{{.Status}}' web | grep -q healthy; then break; fi
+  printf '.'; sleep 3
+done
+echo
+
+ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+[[ -n "$ip" ]] || ip=$(ipconfig getifaddr en0 2>/dev/null || echo "<server-ip>")
+say "Popcorn is running: http://$ip:$(get_env APP_PORT)"
+echo "Log in as $(get_env AUTH_USERNAME). Update later with: bin/update"

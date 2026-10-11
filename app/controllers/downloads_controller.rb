@@ -22,6 +22,7 @@ class DownloadsController < ApplicationController
     @active_downloads = @running.size
     @completed_downloads = Download.completed.count
     @destinations = Destinations.all
+    @space = @destinations.to_h { |_, path| [path, DiskSpace.for(path)] }
   end
 
   # GET /downloads/status.json  (polled by the page every few seconds)

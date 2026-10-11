@@ -60,3 +60,9 @@ yarn-debug.log*
 
 # Local test media folder (MEDIA_ROOT=./media)
 /media
+
+# Database backups made by the backup container
+/backups
+
+# Built zip packages
+/dist

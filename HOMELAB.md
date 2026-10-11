@@ -1,110 +1,122 @@
-# Homelab deployment (Proxmox + aria2)
+# Deploying Popcorn on the homelab
 
-Runs the app with **aria2** as the download engine, saving straight into the
-HDD folders that Jellyfin already reads. Two containers (`web` + `aria2`), shown
-as one `sftp-downloader` group in Docker.
+Popcorn runs as three containers in one `sftp-downloader` group:
 
-```text
-Browser ──▶ web (Rails, :3000) ──JSON-RPC──▶ aria2 (internal only)
-                │                                 │
-                └──────────── /data  (= MEDIA_ROOT, one bind mount) ──────────┘
-     Proxmox host: /mnt/pve/storage/{Movies,TV,Downloads}
-     Jellyfin CT 102 sees the same files at /media/{Movies,TV}
-```
+| Container | What it does |
+|---|---|
+| `web` | The app (watchlist, diary, calendar, downloads) on port 9000 |
+| `aria2` | Downloads files into your media folders (not reachable from outside) |
+| `backup` | Copies the database to `./backups` once a day, keeps 14 days |
 
-Only plain **HTTP/HTTPS** links are accepted. BitTorrent, magnet and metalink
-support is switched off in aria2 and `.torrent` links are rejected by the app.
-Use it only for files you are allowed to download.
+Movies and TV are saved in the folder layout Jellyfin expects:
+`Movies/Dangal (2016)/Dangal (2016).mkv`, `TV/Panchayat (2020)/Season 03/Panchayat (2020) S03E01.mkv`.
 
-RAM use: roughly 150–250 MB for `web` and ~20 MB for `aria2`.
+You need a Linux machine (or Proxmox CT) with **Docker** and **git**. About 300 MB of RAM is enough.
 
 ---
 
-## 1. Give the Docker CT the three folders
+## 1. Give the Docker CT your media folders (Proxmox only)
 
-**Run on the Proxmox host.** Replace `<CTID>` with the CT that runs Docker
-(check with `pct list`) and use mount-point numbers that are free in
-`pct config <CTID>` (here `mp1`–`mp3`).
+Skip this if Docker runs directly on the machine that has the disks.
+
+**On the Proxmox host**, replace `<CTID>` with the CT that runs Docker (`pct list`):
 
 ```bash
 mkdir -p /mnt/pve/storage/Downloads
-chown 101000:101000 /mnt/pve/storage/Downloads   # same owner as Movies/TV
+chown 101000:101000 /mnt/pve/storage/Downloads    # same owner as Movies/TV
 
-pct set <CTID> -mp1 /mnt/pve/storage/Movies,mp=/mnt/storage/Movies
-pct set <CTID> -mp2 /mnt/pve/storage/TV,mp=/mnt/storage/TV
-pct set <CTID> -mp3 /mnt/pve/storage/Downloads,mp=/mnt/storage/Downloads
+pct set <CTID> -mp1 /mnt/pve/storage,mp=/mnt/storage
 pct reboot <CTID>
 ```
 
-The CT needs `nesting=1,keyctl=1` (Options → Features) for Docker.
+The CT needs `nesting=1,keyctl=1` (Options > Features) for Docker. Inside the CT the
+folders now appear at `/mnt/storage/Movies`, `/mnt/storage/TV` and `/mnt/storage/Downloads`.
 
-Containers run as root inside an **unprivileged** CT, which is uid `101000` on
-the host — the same owner as `Movies/` and `TV/`, so writes just work.
+Saving to a Samba/NFS share instead? Mount it at `/mnt/storage` (for example via
+`/etc/fstab`) and answer `none` later for `ARIA2_FILE_ALLOCATION` in `.env`.
 
-## 2. Configure
+## 2. Install
 
-**Inside the CT**, in the app folder:
-
-```bash
-cp .env.example .env
-nano .env
-```
-
-Set at least:
+**Inside the CT:**
 
 ```bash
-AUTH_USERNAME=admin
-AUTH_PASSWORD=<a strong password>
-SECRET_KEY_BASE=<output of: openssl rand -hex 64>
-ARIA2_RPC_SECRET=<output of: openssl rand -hex 24>
-MEDIA_ROOT=/mnt/storage
+git clone git@github.com:kazikhaledsaif/sftp-uploader.git popcorn
+cd popcorn
+bin/setup
 ```
 
-## 3. Start
+`bin/setup` asks for:
+
+- login username and password
+- the media folder (`/mnt/storage`)
+- the port (`9000`)
+- your time zone
+- a TMDB key (optional; you can add it later)
+
+It then generates the secret keys, creates `Movies/`, `TV/` and `Downloads/`, builds
+and starts Popcorn, and prints the address to open, for example `http://192.168.1.50:9000`.
+
+## 3. Add it to your phone
+
+- **iPhone:** open the address in Safari, tap Share, then **Add to Home Screen**.
+- **Android:** open the address in Chrome, tap the menu, then **Add to Home screen**.
+  It runs as a full-screen app only over `https://` (for example through Tailscale);
+  over plain `http://` it opens as a Chrome shortcut.
+
+## 4. Posters and scores (optional)
+
+Edit `.env` and set:
+
+- `TMDB_API_KEY`: free at https://www.themoviedb.org/settings/api. Enables posters,
+  cast, trailers, search and Discover.
+- `OMDB_API_KEY`: free at https://www.omdbapi.com/apikey.aspx. Adds IMDb, Rotten
+  Tomatoes and Metacritic scores.
+
+Then restart: `docker compose up -d --force-recreate`.
+
+## Everyday commands
 
 ```bash
-docker compose up -d --build
-docker compose ps
+bin/update                      # get the latest version and restart (data is kept)
+docker compose ps               # are all three containers up?
+docker compose logs -f web      # app log
+docker compose logs -f aria2    # download log
+docker compose restart          # restart everything
 ```
 
-Open `http://<CT-IP>:3000` and log in.
+Health check for Uptime Kuma: `http://<CT-IP>:9000/up` (no login needed).
 
-## 4. Test with a legal file
+## Backups
 
-Paste a Linux ISO or public-domain film link (e.g. from archive.org), name it,
-pick **Downloads**, and start. You should see speed, ETA and live progress;
-try Pause / Resume / Cancel.
+The `backup` container saves `backups/popcorn-YYYY-MM-DD.sqlite3` every day and keeps
+14 days (`BACKUP_DIR` and `BACKUP_KEEP_DAYS` in `.env`). Your media files are not part
+of it; back those up as you do today.
 
-## 5. Monitoring, dashboard, backup
+To restore a backup:
 
-- **Uptime Kuma:** HTTP monitor on `http://<CT-IP>:3000/up` (no login needed)
-- **Homarr:** add an app tile for `http://<CT-IP>:3000`
-- **Backup:** the history database lives in the `app_storage` Docker volume;
-  back up the CT as usual
+```bash
+docker compose stop web
+docker compose exec backup rm -f /storage/production.sqlite3-wal /storage/production.sqlite3-shm
+docker compose cp backups/popcorn-2026-10-11.sqlite3 backup:/storage/production.sqlite3
+docker compose start web
+```
 
-## Settings you can change in `.env`
+## Settings in `.env`
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ARIA2_CONNECTIONS` | `16` | Connections per file (1–16) |
-| `ARIA2_MAX_CONCURRENT` | `5` | Downloads running at once; the rest are queued |
-| `ARIA2_SPEED_LIMIT` | `0` | Total speed cap, e.g. `5M` |
-| `ARIA2_DISK_CACHE` | `64M` | RAM used to batch disk writes |
-| `ARIA2_FILE_ALLOCATION` | `falloc` | Use `none` if `MEDIA_ROOT` is a Samba/NFS mount |
-| `DOWNLOAD_DESTINATIONS` | Movies/TV/Downloads | "Save to" choices, `Label=/data/<folder>,...` (folders inside `MEDIA_ROOT`) |
-| `APP_HOSTS` | (any) | Allowed hostnames, e.g. `downloads.home` |
-| `APP_PORT` | `3000` | Port on the CT |
+| `AUTH_USERNAME` / `AUTH_PASSWORD` | | Login for the web page |
+| `MEDIA_ROOT` | `/mnt/storage` | Folder with Movies/, TV/, Downloads/ (mounted as `/data`) |
+| `APP_PORT` | `9000` | Port of the web page |
+| `TIME_ZONE` | `UTC` | For "watched on" dates, e.g. `Asia/Kolkata` |
+| `DOWNLOAD_DESTINATIONS` | Movies, TV Series, Downloads | "Save to" choices: `Label=/data/<folder>,...` |
+| `ARIA2_CONNECTIONS` | `16` | Connections per file (1-16) |
+| `ARIA2_MAX_CONCURRENT` | `5` | Downloads at the same time; the rest wait in the queue |
+| `ARIA2_SPEED_LIMIT` | `0` | Total speed cap, e.g. `5M` (0 = unlimited) |
+| `ARIA2_FILE_ALLOCATION` | `falloc` | Use `none` on Samba/NFS mounts |
+| `TMDB_API_KEY` / `OMDB_API_KEY` | | Posters, details and critic scores |
+| `BACKUP_DIR` / `BACKUP_KEEP_DAYS` | `./backups` / `14` | Daily database backups |
+| `APP_HOSTS` | (any) | Allowed hostnames, e.g. `popcorn.home` |
 
-If a server answers "too many requests" (HTTP 429/503), the download goes back
-in the queue and is retried automatically after 15 s, 30 s, 60 s… (up to 8 times)
-with fewer connections. It continues from where it stopped.
-
-## Saving to a Samba share instead
-
-Mount the share on the machine that runs Docker (e.g. at `/mnt/storage` via
-`/etc/fstab` with `cifs`), then set `MEDIA_ROOT=/mnt/storage` and
-`ARIA2_FILE_ALLOCATION=none`. Running Docker on the Samba server itself is
-faster, since files are written to the disk directly.
-
-Keep it LAN-only. For access from outside, use Tailscale rather than a router
-port forward.
+Keep Popcorn on your home network. For access from outside, use Tailscale rather than
+opening a port on your router.

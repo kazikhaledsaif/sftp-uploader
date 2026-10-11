@@ -35,6 +35,8 @@ module DownloadsHelper
 
   # aria2's messages are terse; turn the common HTTP ones into a sentence.
   def friendly_error(message)
+    return "Stopped: the disk is full. Free up space, then press Retry." if message.to_s.match?(/no space|disk space|not enough space left/i)
+
     code = message.to_s[/status=(\d{3})/, 1]
     return message unless code
 

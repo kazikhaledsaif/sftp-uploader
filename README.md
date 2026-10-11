@@ -1,56 +1,50 @@
 # Popcorn
 
-A small web app for your homelab (downloader now, watch tracker next): paste a link on your phone, pick a folder
-(Movies, TV Series, Downloads…), and **aria2** downloads it straight into your
-media folders, using many connections per file and several downloads at once.
+Your own movie house for the homelab: plan, track and download movies and TV series,
+mostly from your phone.
 
-- Mobile-first page with live progress, speed and time left
-- Pause, resume, retry, cancel, remove from list, delete file
-- Downloads queue when the limit is reached; "too many requests" (HTTP 429/503)
-  answers are retried automatically with a growing wait
-- Survives restarts (aria2 keeps its session; the history is in SQLite)
-- Only plain HTTP/HTTPS links; torrents and metalinks are rejected
+- **Watchlist:** what you want to watch, with search, filters (Hindi/English, genre,
+  in library), sort and "Pick for me". Shows you are part-way through show "Next: S3".
+- **Diary:** everything you watched, with date, half-star rating and a note, plus
+  yearly stats.
+- **Calendar:** plan a title for Friday or Saturday night, see release days; after a
+  planned date it asks "Did you watch it?".
+- **Title pages:** poster, cast, trailer, critic scores and a Wikipedia summary (with
+  free TMDB/OMDb keys).
+- **Downloads:** paste a link, pick Movies / TV Series / Downloads, and **aria2**
+  downloads it into your media folders in the layout Jellyfin expects. Many connections
+  per file, several downloads at once, automatic retries. The title goes on your
+  Want list.
+- **Installable** on your phone's home screen like an app.
 
-## Quick start (Docker)
+## Install
+
+On a Linux server (or Proxmox CT) with Docker and git:
 
 ```bash
-cp .env.example .env
-nano .env          # AUTH_*, SECRET_KEY_BASE, ARIA2_RPC_SECRET, MEDIA_ROOT
-docker compose up -d --build
+git clone git@github.com:kazikhaledsaif/sftp-uploader.git popcorn
+cd popcorn
+bin/setup          # asks a few questions, then starts everything
 ```
 
-Open `http://<server-ip>:3000` and log in. Both containers (`web` and `aria2`)
-show up as one `sftp-downloader` group in Docker.
+Later, `bin/update` gets the latest version and restarts it. Your data is kept.
 
-`MEDIA_ROOT` is the folder on the server that holds your media folders. It is
-mounted in the containers as `/data`, so the "Save to" choices point at
-`/data/Movies`, `/data/TV` and so on. Change them with `DOWNLOAD_DESTINATIONS`.
-
-Full setup on Proxmox (and saving to a Samba share): see [HOMELAB.md](HOMELAB.md).
-All settings are listed in [.env.example](.env.example).
+The full guide is in [HOMELAB.md](HOMELAB.md): Proxmox folders, phone install, posters,
+backups and all settings.
 
 ## How it works
 
 ```text
 Phone ──▶ web (Rails 7.1, SQLite) ──JSON-RPC──▶ aria2 (not exposed)
-                    │                              │
-                    └──────── MEDIA_ROOT → /data ──┘
+              │        │                          │
+              │        └────── MEDIA_ROOT → /data ┘
+              └── backup: daily copy of the database to ./backups
 ```
 
-The web container asks aria2 for progress every few seconds (in the background,
-so retries and completions are picked up even with the page closed) and stores
-it in SQLite with a single writer, so many downloads at once don't lock the database.
+All three containers show up as one `sftp-downloader` group in Docker.
 
-## Useful commands
-
-```bash
-docker compose ps                 # status
-docker compose logs -f web        # app logs
-docker compose logs -f aria2      # download engine logs
-docker compose up -d --build      # update after pulling changes
-```
-
-Health check (for Uptime Kuma): `http://<server-ip>:3000/up` (no login).
+Try it with sample data: `docker compose exec web bin/rails popcorn:demo`
+(remove it again with `popcorn:demo:clear`).
 
 ## License
 

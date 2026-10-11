@@ -11,6 +11,7 @@ name: sftp-downloader
 services:
   web:
     build: .
+    image: popcorn-web
     restart: unless-stopped
     env_file: .env
     environment:
@@ -21,7 +22,7 @@ services:
       WEB_CONCURRENCY: "0"      # single Puma process: saves RAM
       RAILS_MAX_THREADS: "5"
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - "${APP_PORT:-9000}:3000"
     volumes:
       - app_storage:/app/storage
       - ${MEDIA_ROOT:?Set MEDIA_ROOT in .env}:/data
@@ -47,6 +48,30 @@ services:
     volumes:
       - aria2_session:/session
       - ${MEDIA_ROOT}:/data
+
+  # Daily copy of the database (watchlist, diary, download history) to
+  # BACKUP_DIR, keeping BACKUP_KEEP_DAYS days. Uses SQLite's safe online backup.
+  backup:
+    image: popcorn-web
+    restart: unless-stopped
+    depends_on:
+      - web
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        while true; do
+          if [ -f /storage/production.sqlite3 ]; then
+            f="/backups/popcorn-$$(date +%F).sqlite3"
+            sqlite3 /storage/production.sqlite3 ".backup '$$f'" && echo "backup saved: $$f"
+            find /backups -name 'popcorn-*.sqlite3' -mtime +$${BACKUP_KEEP_DAYS:-14} -delete
+          fi
+          sleep 86400
+        done
+    environment:
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - app_storage:/storage
+      - ${BACKUP_DIR:-./backups}:/backups
 
 volumes:
   app_storage:

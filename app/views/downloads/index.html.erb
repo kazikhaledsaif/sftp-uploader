@@ -28,11 +28,18 @@
       <div class="segmented">
         <% @destinations.each_with_index do |(label, path), i| %>
           <label>
+            <% sp = @space[path] %>
             <%= f.radio_button :destination_path, path, required: true, checked: i.zero?,
-                  data: { tv: Destinations.tv?(path) } %>
+                  data: { tv: Destinations.tv?(path),
+                          free: (Download.human_bytes(sp[:free]) if sp), total: (Download.human_bytes(sp[:total]) if sp),
+                          used: (((1 - sp[:free].to_f / sp[:total]) * 100).round if sp), low: DiskSpace.low?(sp) } %>
             <span><%= label %></span>
           </label>
         <% end %>
+      </div>
+      <div class="disk" id="disk" hidden>
+        <div class="disk-bar"><i id="disk-used"></i></div>
+        <span id="disk-text"></span>
       </div>
     </fieldset>
 
@@ -197,6 +204,19 @@
     };
     [...destRadios, ...kindRadios].forEach(r => r.addEventListener('change', syncTvFields));
 
+    // Free space on the disk of the selected destination.
+    const syncDisk = () => {
+      const r = destRadios.find(r => r.checked);
+      const box = document.getElementById('disk');
+      if (!r || !r.dataset.free) { box.hidden = true; return; }
+      box.hidden = false;
+      box.classList.toggle('low', r.dataset.low === 'true');
+      document.getElementById('disk-used').style.width = `${r.dataset.used}%`;
+      document.getElementById('disk-text').textContent =
+        `${r.dataset.free} free of ${r.dataset.total}${r.dataset.low === 'true' ? ' (running low)' : ''}`;
+    };
+    destRadios.forEach(r => r.addEventListener('change', syncDisk));
+
     // "Dangal.2016.1080p.WEB" -> "Dangal (2016)"; "Some_Show" -> "Some Show"
     const tidy = (text) => {
       const t = text.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -224,7 +244,7 @@
       } else if (!name.value.trim() && base) {
         name.value = tidy(base);
       }
-      syncTvFields();
+      syncTvFields(); syncDisk();
     };
     const suggestName = readLink;
 
@@ -241,7 +261,7 @@
       if (pre.get('track') === '') form.querySelector('input[name="track"][value=""]').checked = true;
       url.focus();
     }
-    syncTvFields();
+    syncTvFields(); syncDisk();
     url.addEventListener('change', suggestName);
     url.addEventListener('paste', () => setTimeout(suggestName, 0));
 

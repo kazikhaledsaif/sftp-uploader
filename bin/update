@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Update Popcorn to the latest code and restart it. Your data stays.
+#   bin/update
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "Getting the latest code..."
+git pull --ff-only
+
+echo "Rebuilding and restarting..."
+docker compose up -d --build
+docker image prune -f >/dev/null   # remove the old, now unused images
+
+printf 'Waiting for Popcorn'
+for _ in $(seq 1 60); do
+  if docker compose ps --format '{{.Status}}' web | grep -q healthy; then echo " ready."; exit 0; fi
+  printf '.'; sleep 3
+done
+echo
+echo "Popcorn did not report healthy yet. Check: docker compose logs web" >&2
+exit 1

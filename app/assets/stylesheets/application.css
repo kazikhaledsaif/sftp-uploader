@@ -1220,3 +1220,10 @@ a.icon-btn { text-decoration: none; }
 @media (min-width: 600px) {
   .rail { grid-auto-columns: 132px; }
 }
+
+/* Free disk space under "Save to" */
+.disk { display: grid; gap: 6px; margin-top: 10px; font-size: 0.82rem; color: var(--muted); }
+.disk-bar { height: 4px; border-radius: 2px; background: var(--sunken); overflow: hidden; }
+.disk-bar > i { display: block; height: 100%; background: var(--muted); border-radius: 2px; }
+.disk.low { color: var(--accent-text); font-weight: 600; }
+.disk.low .disk-bar > i { background: var(--accent); }

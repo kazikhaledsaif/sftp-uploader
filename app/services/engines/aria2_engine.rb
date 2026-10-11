@@ -1,4 +1,5 @@
 require "fileutils"
+require "net/http"
 
 module Engines
   # Downloads with aria2 (multi-connection, real pause/resume, survives restarts)
@@ -40,6 +41,15 @@ module Engines
       if File.exist?(target) && !File.exist?("#{target}.aria2")
         download.update!(status: "failed",
                          error_message: "#{output_name} already exists in #{download.folder_path}. Use a different name.")
+        return
+      end
+
+      # Refuse up front when the file cannot fit (aria2 would fail half-way).
+      space = DiskSpace.measure(download.destination_path)
+      if head[:size].to_i.positive? && space && head[:size] > space[:free]
+        download.update!(status: "failed", file_size: head[:size],
+                         error_message: "Not enough space: needs #{Download.human_bytes(head[:size])}, " \
+                                        "#{Download.human_bytes(space[:free])} free on the disk.")
         return
       end
 
@@ -222,18 +232,37 @@ module Engines
       download.update!(attrs)
     end
 
+    # Size, type and file name of the link. Some servers refuse HEAD requests,
+    # so fall back to asking for the first byte (the reply carries the total size).
     def probe(url)
-      res = HTTParty.head(url, follow_redirects: true, timeout: 10)
-      return {} unless res.code.to_i.between?(200, 299)
+      head = request_headers(url, Net::HTTP::Head) || {}
+      return head if head[:size].to_i.positive?
 
-      {
-        size: res.headers["content-length"]&.to_i,
-        type: res.headers["content-type"],
-        disposition: res.headers["content-disposition"]
-      }
+      ranged = request_headers(url, Net::HTTP::Get, { "Range" => "bytes=0-0" }) || {}
+      { size: ranged[:size], type: head[:type] || ranged[:type], disposition: head[:disposition] || ranged[:disposition] }
+    end
+
+    # Reads only the response headers (never the body, so a server that ignores
+    # the Range header cannot make us download the whole file). Follows redirects.
+    def request_headers(url, verb, extra = {}, redirects: 5)
+      uri = URI(url)
+      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https", open_timeout: 8, read_timeout: 8) do |http|
+        req = verb.new(uri)
+        extra.each { |k, v| req[k] = v }
+        http.request(req) do |res|
+          if res.is_a?(Net::HTTPRedirection) && res["location"] && redirects.positive?
+            return request_headers(URI.join(url, res["location"]).to_s, verb, extra, redirects: redirects - 1)
+          end
+          return nil unless res.is_a?(Net::HTTPSuccess)
+
+          total = res["content-range"].to_s[%r{/(\d+)\z}, 1]
+          size = total ? total.to_i : (res.is_a?(Net::HTTPPartialContent) ? nil : res["content-length"]&.to_i)
+          return { size: size, type: res["content-type"], disposition: res["content-disposition"] }
+        end
+      end
     rescue StandardError => e
-      Rails.logger.info("HEAD #{url} failed: #{e.message}")
-      {}
+      Rails.logger.info("#{verb.name.demodulize} #{url} failed: #{e.message}")
+      nil
     end
 
     def wait_until_stopped(gid)
