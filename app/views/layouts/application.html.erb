@@ -22,6 +22,16 @@
     <link href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" rel="stylesheet">
     <link href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" rel="stylesheet">
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <script>
+      // Page fades (CSS @view-transition) are cancelled when a navigation is
+      // interrupted (auto-refresh, form submit, tab hidden). That is fine, but
+      // the browser reports it as an unhandled error unless we catch it.
+      (() => {
+        const quiet = t => t && ['ready', 'finished', 'updateCallbackDone'].forEach(p => t[p]?.catch(() => {}));
+        addEventListener('pageswap', e => quiet(e.viewTransition));
+        addEventListener('pagereveal', e => quiet(e.viewTransition));
+      })();
+    </script>
   </head>
 
   <body>
