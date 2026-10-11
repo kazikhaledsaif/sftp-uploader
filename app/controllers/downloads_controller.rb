@@ -28,8 +28,13 @@ class DownloadsController < ApplicationController
 
   # POST /downloads/speed  mode=full|balanced|light
   def speed
-    SpeedLimit.set!(params[:mode].to_s)
-    redirect_to root_path, notice: "Download speed: #{SpeedLimit::LABELS[SpeedLimit.mode]}."
+    label = SpeedLimit::LABELS[params[:mode].to_s]
+    if SpeedLimit.set!(params[:mode].to_s)
+      redirect_to root_path, notice: "Download speed: #{label}."
+    else
+      redirect_to root_path, alert: "Saved #{label}, but the downloader did not accept it yet. " \
+                                    "It is retried every minute; check that the aria2 container is running."
+    end
   rescue ArgumentError
     redirect_to root_path
   end
