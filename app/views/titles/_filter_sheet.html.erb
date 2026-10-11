@@ -1,0 +1,46 @@
+<dialog class="sheet" id="sheet-filters" aria-labelledby="sheet-filters-title">
+  <%= form_with url: titles_path, method: :get, local: true, class: 'sheet-body sheet-form' do %>
+    <h4 class="sheet-title" id="sheet-filters-title">Filter and sort</h4>
+    <% if @filters[:q] %><input type="hidden" name="q" value="<%= @filters[:q] %>"><% end %>
+
+    <% groups = [
+         ["Type", :type, [["", "All"], ["movie", "Movies"], ["tv", "TV series"]]],
+         ["Language", :lang, [["", "Any"], ["hi", "Hindi"], ["en", "English"], ["other", "Other"]]],
+         ["Library", :have, [["", "Any"], ["library", "In library"], ["missing", "Not downloaded"]]]
+       ] %>
+    <% groups.each do |legend, key, options| %>
+      <fieldset class="field">
+        <legend><%= legend %></legend>
+        <div class="chips">
+          <% options.each do |value, label| %>
+            <label class="chip"><input type="radio" name="<%= key %>" value="<%= value %>" <%= 'checked' if @filters[key].to_s == value %>><span><%= label %></span></label>
+          <% end %>
+        </div>
+      </fieldset>
+    <% end %>
+
+    <% if @genres.any? %>
+      <fieldset class="field">
+        <legend>Genre</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="genre" value="" <%= 'checked' if @filters[:genre].blank? %>><span>Any</span></label>
+          <% @genres.each do |g| %>
+            <label class="chip"><input type="radio" name="genre" value="<%= g %>" <%= 'checked' if @filters[:genre] == g %>><span><%= g %></span></label>
+          <% end %>
+        </div>
+      </fieldset>
+    <% end %>
+
+    <fieldset class="field">
+      <legend>Sort</legend>
+      <div class="chips">
+        <% TitlesController::SORTS.each do |value, label| %>
+          <label class="chip"><input type="radio" name="sort" value="<%= value == 'added' ? '' : value %>" <%= 'checked' if (@filters[:sort] || 'added') == value %>><span><%= label %></span></label>
+        <% end %>
+      </div>
+    </fieldset>
+
+    <button type="submit" class="primary">Show titles</button>
+    <a href="<%= titles_path %>" class="sheet-close as-link">Reset</a>
+  <% end %>
+</dialog>

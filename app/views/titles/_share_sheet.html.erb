@@ -1,0 +1,15 @@
+<dialog class="sheet" id="sheet-share" aria-labelledby="sheet-share-title">
+  <div class="sheet-body">
+    <h4 class="sheet-title" id="sheet-share-title">Share</h4>
+    <p class="share-text" id="share-text"><%= share_text(title) %></p>
+    <div class="sheet-actions">
+      <a href="https://wa.me/?text=<%= ERB::Util.url_encode(share_text(title)) %>" target="_blank" rel="noopener">
+        <i class="ph ph-whatsapp-logo"></i> WhatsApp
+      </a>
+      <a href="sms:?&body=<%= ERB::Util.url_encode(share_text(title)) %>"><i class="ph ph-chat-text"></i> Message</a>
+      <a href="mailto:?subject=<%= ERB::Util.url_encode(title.name) %>&body=<%= ERB::Util.url_encode(share_text(title)) %>"><i class="ph ph-envelope-simple"></i> Email</a>
+    </div>
+    <p class="hint">Or press and hold the text above to copy it.</p>
+    <button type="button" class="sheet-close" data-close>Close</button>
+  </div>
+</dialog>

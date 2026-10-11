@@ -1,0 +1,12 @@
+<%# Date chooser: quick chips + "Pick a date". choices: [[label, date], ...] %>
+<% field = local_assigns[:name] || "watched_on" %>
+<% picked = local_assigns[:value] || choices.first.last %>
+<div class="date-chips chips" role="radiogroup" aria-label="<%= local_assigns[:label] || 'Date' %>">
+  <% choices.each do |label, date| %>
+    <label class="chip"><input type="radio" name="_<%= field %>_chip" value="<%= date.iso8601 %>" <%= 'checked' if date == picked %>><span><%= label %></span></label>
+  <% end %>
+  <label class="chip"><input type="radio" name="_<%= field %>_chip" value=""><span>Pick a date</span></label>
+</div>
+<input type="date" name="<%= field %>" class="input" value="<%= picked.iso8601 %>" hidden
+       <% if local_assigns[:max] %>max="<%= local_assigns[:max].iso8601 %>"<% end %>
+       <% if local_assigns[:min] %>min="<%= local_assigns[:min].iso8601 %>"<% end %>>

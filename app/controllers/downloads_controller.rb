@@ -1,4 +1,6 @@
 class DownloadsController < ApplicationController
+  HISTORY_PER_PAGE = 30
+
   before_action :set_download, only: %i[destroy pause resume cancel destroy_file]
 
   # A page left open can still show a download that was removed elsewhere.
@@ -9,8 +11,14 @@ class DownloadsController < ApplicationController
   # GET /downloads
   def index
     DownloadEngine.current.sync(Download.active.to_a)
-    @downloads = Download.recent
-    @running, @history = @downloads.partition { |d| d.pending? || d.downloading? || d.paused? }
+    @running = Download.active.recent.includes(:title).to_a
+    # History is paged: 30 at a time, "Show more" loads the next page.
+    @page = [params[:page].to_i, 1].max
+    @history = Download.where.not(id: @running.map(&:id)).recent.includes(:title)
+                       .offset((@page - 1) * HISTORY_PER_PAGE).limit(HISTORY_PER_PAGE + 1).to_a
+    @more_history = @history.size > HISTORY_PER_PAGE
+    @history = @history.first(HISTORY_PER_PAGE)
+    @downloads_count = Download.count
     @active_downloads = @running.size
     @completed_downloads = Download.completed.count
     @destinations = Destinations.all
@@ -22,7 +30,7 @@ class DownloadsController < ApplicationController
     render json: {
       active: Download.active.count,
       completed: Download.completed.count,
-      downloads: Download.recent.limit(100).map(&:as_status_json)
+      downloads: Download.active.map(&:as_status_json) # finished ones no longer change
     }
   end
 
@@ -32,6 +40,8 @@ class DownloadsController < ApplicationController
 
     if @download.save
       @download.start!
+      # "Add to watchlist" choice from the form: want to watch, or don't track.
+      TrackDownloadJob.perform_later(@download.id) if params[:track] == "want"
       respond_to do |format|
         format.json { render json: { id: @download.id, status: @download.status }, status: :created }
         format.html { redirect_to downloads_path, notice: "Download started." }

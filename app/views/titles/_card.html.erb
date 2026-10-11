@@ -1,0 +1,21 @@
+<li class="card">
+  <a href="<%= title_path(title) %>" class="card-link">
+    <%= poster(title) %>
+    <span class="card-name"><%= title.name %></span>
+    <span class="card-meta">
+      <% if (plan = title.next_plan) %>
+        <span class="soon"><i class="ph ph-calendar-check"></i> <%= relative_day(plan.planned_on) %></span>
+      <% elsif (note = release_note(title)) %>
+        <span class="soon"><%= note %></span>
+      <% elsif (left = seasons_left_note(title)) %>
+        <span class="left"><%= left %></span>
+      <% else %>
+        <span class="num"><%= title.year %></span>
+        <% if (rt = runtime_text(title.runtime)) && !title.tv? %><span class="num"><%= rt %></span><% end %>
+      <% end %>
+      <% if title.downloaded? %>
+        <span class="have" title="In library"><i class="ph-fill ph-check-circle"></i></span>
+      <% end %>
+    </span>
+  </a>
+</li>

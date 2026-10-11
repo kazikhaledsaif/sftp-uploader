@@ -16,7 +16,8 @@ module FtpUploder
     # These settings can be overridden in specific environments using the files
     # in config/environments/, which are processed later.
     #
-    # config.time_zone = "Central Time (US & Canada)"
+    # Dates like "watched on" use this zone (e.g. Asia/Kolkata). Set TIME_ZONE in .env.
+    config.time_zone = ENV.fetch("TIME_ZONE", "UTC")
     # config.eager_load_paths << Rails.root.join("extras")
 
     # aria2 does the downloading, so no Redis/Sidekiq is needed.

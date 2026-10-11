@@ -1,0 +1,20 @@
+<%# Horizontal row of TMDB items with a one-tap "Want" button. items: hashes, tracked: {[type, id] => Title} %>
+<ul class="rail posters">
+  <% items.each do |r| %>
+    <% mine = tracked[[r[:media_type], r[:tmdb_id]]] %>
+    <li>
+      <% if mine %>
+        <a href="<%= title_path(mine) %>" class="card-link"><%= poster(r, size: "w185") %></a>
+      <% else %>
+        <%= poster(r, size: "w185") %>
+      <% end %>
+      <span class="card-name"><%= r[:name] %></span>
+      <% if mine %>
+        <span class="have"><i class="ph-fill ph-check-circle"></i> <%= mine.status_label %></span>
+      <% else %>
+        <%= button_to titles_path, params: { tmdb_id: r[:tmdb_id], media_type: r[:media_type], status: "want", return_to: request.fullpath },
+              class: "chip-btn chip-btn-accent rail-add", form: { data: { turbo: false } } do %><i class="ph ph-plus"></i> Want<% end %>
+      <% end %>
+    </li>
+  <% end %>
+</ul>

@@ -1,0 +1,58 @@
+<main class="page page-single">
+  <a href="<%= titles_path %>" class="back"><i class="ph ph-caret-left"></i> Watchlist</a>
+
+  <% flash.each do |type, message| %>
+    <div class="flash flash-<%= type %>" role="status"><%= message %></div>
+  <% end %>
+
+  <%= form_with url: discover_path, method: :get, local: true, class: 'search' do %>
+    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+    <input type="search" name="q" value="<%= @query %>" class="input" placeholder="Search movies and TV series"
+           aria-label="Search movies and TV series" enterkeyhint="search" autocomplete="off" autocapitalize="off" <%= 'autofocus' if @query.blank? && !Tmdb.enabled? %>>
+    <% if @query.present? %><a href="<%= discover_path %>" class="search-clear" aria-label="Clear search"><i class="ph ph-x"></i></a><% end %>
+  <% end %>
+
+  <% if @error %><p class="hint"><%= @error %></p><% end %>
+
+  <% if @query.present? %>
+    <section aria-labelledby="results-title">
+      <h2 class="list-title" id="results-title">Results</h2>
+      <% if @results&.empty? && !@error %><p class="hint">Nothing found. Check the spelling, or add it by name below.</p><% end %>
+      <ul class="results">
+        <% Array(@results).each do |r| %>
+          <% mine = @tracked[[r[:media_type], r[:tmdb_id]]] %>
+          <li class="result">
+            <%= poster(r, size: "w154", css: "thumb") %>
+            <div class="result-body">
+              <span class="result-name"><%= r[:name] %></span>
+              <% if r[:original_name].present? && r[:original_name] != r[:name] %><span class="result-alt"><%= r[:original_name] %></span><% end %>
+              <span class="result-meta"><% title_meta(r).each do |m| %><span><%= m %></span><% end %></span>
+              <div class="result-actions">
+                <% if mine %>
+                  <a href="<%= title_path(mine) %>" class="chip-link"><i class="ph-fill ph-check-circle"></i> <%= mine.status_label %></a>
+                <% else %>
+                  <% [["want", "Want to watch", "ph-plus"], ["watched", "Watched", "ph-check"]].each do |status, label, icon| %>
+                    <%= button_to titles_path, params: { tmdb_id: r[:tmdb_id], media_type: r[:media_type], status: status, return_to: request.fullpath },
+                          class: "chip-btn#{' chip-btn-accent' if status == 'want'}", form: { data: { turbo: false } } do %>
+                      <i class="ph <%= icon %>"></i> <%= label %>
+                    <% end %>
+                  <% end %>
+                <% end %>
+              </div>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% elsif @rows %>
+    <% @rows.each do |heading, items| %>
+      <% next if items.blank? %>
+      <section>
+        <h2 class="list-title"><%= heading %></h2>
+        <%= render 'rail', items: items, tracked: @tracked %>
+      </section>
+    <% end %>
+  <% end %>
+
+  <%= render 'add_by_name', name: @query, open: @query.present? && @results.blank? || !Tmdb.enabled? %>
+</main>

@@ -50,6 +50,9 @@
       <p class="sheet-path num"><%= download.folder_path %></p>
 
       <div class="sheet-actions">
+        <% if download.title %>
+          <a href="<%= title_path(download.title) %>"><i class="ph ph-film-strip"></i> Open in watchlist</a>
+        <% end %>
         <% if download.can_cancel? %>
           <%= button_to cancel_download_path(download), method: :post, form: { data: { turbo: false } } do %>
             <i class="ph ph-stop-circle"></i> Cancel download

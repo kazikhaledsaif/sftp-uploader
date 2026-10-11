@@ -1,0 +1,26 @@
+<dialog class="sheet" id="sheet-plan" aria-labelledby="sheet-plan-title">
+  <%= form_with url: title_plans_path(title), method: :post, local: true, class: 'sheet-body sheet-form' do %>
+    <h4 class="sheet-title" id="sheet-plan-title">Plan to watch</h4>
+    <p class="sheet-path"><%= title.name %></p>
+
+    <% if title.tv? && title.seasons.any? %>
+      <fieldset class="field">
+        <legend>Season</legend>
+        <div class="chips">
+          <% next_up = title.seasons_left.first || title.seasons.last %>
+          <% title.seasons.each do |s| %>
+            <label class="chip"><input type="radio" name="season_number" value="<%= s.number %>" <%= 'checked' if s == next_up %>><span>S<%= s.number %></span></label>
+          <% end %>
+        </div>
+      </fieldset>
+    <% end %>
+
+    <fieldset class="field">
+      <legend>When</legend>
+      <%= render 'shared/date_chips', name: "planned_on", choices: plan_choices, min: Date.current, label: "Plan for" %>
+    </fieldset>
+
+    <button type="submit" class="primary">Plan it</button>
+    <button type="button" class="sheet-close" data-close>Cancel</button>
+  <% end %>
+</dialog>

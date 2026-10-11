@@ -3,6 +3,8 @@ class Download < ApplicationRecord
   BLOCKED_EXTENSIONS = %w[.torrent .metalink .meta4].freeze
   KINDS = %w[movie episode season].freeze # season = a whole season in one file
 
+  belongs_to :title, optional: true
+
   # Validations
   validates :url, presence: true, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]),
                                             message: "must be an http:// or https:// link" }

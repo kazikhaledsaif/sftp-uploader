@@ -1,0 +1,80 @@
+<main class="page page-single">
+  <% flash.each do |type, message| %>
+    <div class="flash flash-<%= type %>" role="status"><%= message %></div>
+  <% end %>
+
+  <% base = { year: @year, type: @type, view: (@view if @view == "list") }.compact %>
+
+  <div class="chips scroll-chips" role="navigation" aria-label="Year">
+    <a href="<%= diary_path(**base.except(:year)) %>" class="chip-a<%= ' on' unless @year %>">All time</a>
+    <% @years.each do |y| %>
+      <a href="<%= diary_path(**base, year: y) %>" class="chip-a<%= ' on' if @year == y %>"><%= y %></a>
+    <% end %>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-value num"><%= @stats[:movies] %></span><span class="stat-label">movies</span></div>
+    <div class="stat"><span class="stat-value num"><%= @stats[:seasons] %></span><span class="stat-label">seasons</span></div>
+    <div class="stat"><span class="stat-value num"><%= @stats[:hours] %></span><span class="stat-label">hours</span></div>
+    <div class="stat"><span class="stat-value num"><%= @stats[:average] || "-" %></span><span class="stat-label">avg stars</span></div>
+  </div>
+  <% if @stats[:genres].any? %><p class="hint">Mostly <%= @stats[:genres].join(" and ") %></p><% end %>
+
+  <div class="toolbar">
+    <div class="segmented seg-links">
+      <a href="<%= diary_path(**base.except(:type)) %>" class="<%= 'on' unless @type %>">All</a>
+      <a href="<%= diary_path(**base, type: 'movie') %>" class="<%= 'on' if @type == 'movie' %>">Movies</a>
+      <a href="<%= diary_path(**base, type: 'tv') %>" class="<%= 'on' if @type == 'tv' %>">TV</a>
+    </div>
+    <a href="<%= diary_path(**base.except(:view), **(@view == 'grid' ? { view: 'list' } : {})) %>" class="tool-btn" aria-label="Switch to <%= @view == 'grid' ? 'list' : 'grid' %>">
+      <i class="ph <%= @view == 'grid' ? 'ph-list' : 'ph-squares-four' %>"></i>
+    </a>
+  </div>
+
+  <% if @viewings.empty? %>
+    <div class="empty">
+      <i class="ph ph-book-open-text"></i>
+      <p>Nothing here yet. Mark a movie or season watched and it shows up in your diary.</p>
+    </div>
+  <% else %>
+    <div id="diary-list">
+      <% @viewings.group_by { |v| v.watched_on.beginning_of_month }.each do |month, entries| %>
+        <section class="diary-month" data-month="<%= month.iso8601 %>">
+          <h3 class="month"><%= month.strftime("%B %Y") %> <span class="num count"><%= entries.size %></span></h3>
+          <% if @view == "list" %>
+            <ul class="diary-rows">
+              <% entries.each do |v| %>
+                <li>
+                  <a href="<%= title_path(v.title) %>" class="diary-row">
+                    <span class="day num"><%= v.watched_on.day %><small><%= v.watched_on.strftime("%a") %></small></span>
+                    <%= poster(v.title, size: "w92", css: "thumb mini") %>
+                    <span class="diary-what">
+                      <span class="result-name"><%= v.title.name %></span>
+                      <span class="result-meta"><%= v.season_number ? "Season #{v.season_number}" : v.title.year %></span>
+                    </span>
+                    <%= stars(v.rating) %>
+                  </a>
+                </li>
+              <% end %>
+            </ul>
+          <% else %>
+            <ul class="grid">
+              <% entries.each do |v| %>
+                <li class="card">
+                  <a href="<%= title_path(v.title) %>" class="card-link">
+                    <%= poster(v.title) %>
+                    <span class="card-name"><%= v.title.name %><%= " S#{v.season_number}" if v.season_number %></span>
+                    <span class="card-meta"><span class="num"><%= v.watched_on.strftime("%-d %b") %></span><%= stars(v.rating, css: "stars stars-sm") %></span>
+                  </a>
+                </li>
+              <% end %>
+            </ul>
+          <% end %>
+        </section>
+      <% end %>
+    </div>
+    <% if @more %>
+      <a class="show-more" href="<%= diary_path(**base, page: @page + 1) %>" data-more="#diary-list">Show more</a>
+    <% end %>
+  <% end %>
+</main>

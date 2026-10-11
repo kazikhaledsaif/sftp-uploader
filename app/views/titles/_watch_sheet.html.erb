@@ -1,0 +1,36 @@
+<dialog class="sheet" id="sheet-watch" aria-labelledby="sheet-watch-title">
+  <%= form_with url: title_viewings_path(title), method: :post, local: true, class: 'sheet-body sheet-form' do %>
+    <h4 class="sheet-title" id="sheet-watch-title">Add to diary</h4>
+    <p class="sheet-path"><%= title.name %></p>
+
+    <% if title.tv? && title.seasons.any? %>
+      <fieldset class="field">
+        <legend>Which season?</legend>
+        <div class="chips">
+          <% next_up = title.seasons_left.first %>
+          <% title.seasons.each do |s| %>
+            <label class="chip"><input type="checkbox" name="season_numbers[]" value="<%= s.number %>" <%= 'checked' if s == next_up %>><span>S<%= s.number %><%= ' ✓' if s.watched? %></span></label>
+          <% end %>
+        </div>
+      </fieldset>
+    <% end %>
+
+    <fieldset class="field">
+      <legend>When</legend>
+      <%= render 'shared/date_chips', choices: [["Today", Date.current], ["Yesterday", Date.current - 1]], max: Date.current, label: "Watched on" %>
+    </fieldset>
+
+    <fieldset class="field">
+      <legend>Your rating</legend>
+      <%= render 'shared/star_input' %>
+    </fieldset>
+
+    <div class="field">
+      <label for="watch-note">Note <span class="label-note">optional</span></label>
+      <textarea id="watch-note" name="note" class="input textarea" rows="2" placeholder="What did you think?"></textarea>
+    </div>
+
+    <button type="submit" class="primary">Add to diary</button>
+    <button type="button" class="sheet-close" data-close>Cancel</button>
+  <% end %>
+</dialog>

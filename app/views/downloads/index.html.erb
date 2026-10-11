@@ -1,9 +1,6 @@
-<header class="bar">
-  <div class="bar-inner">
-    <span class="wordmark"><i class="ph-fill ph-popcorn"></i> Popcorn</span>
-    <span class="bar-count"><span class="num" id="stat-active"><%= @active_downloads %></span> running</span>
-  </div>
-</header>
+<% content_for :bar_right do %>
+  <span class="bar-count"><span class="num" id="stat-active"><%= @active_downloads %></span> running</span>
+<% end %>
 
 <main class="page">
   <% flash.each do |type, message| %>
@@ -22,7 +19,7 @@
 
     <div class="field">
       <label for="download_filename"><span id="name-label">Name</span> <span class="label-note" id="name-note">folder and file</span></label>
-      <%= f.text_field :filename, placeholder: 'Dangal (2016)', class: 'input', required: true,
+      <%= f.text_field :filename, placeholder: 'Movie name (Year)', class: 'input', required: true,
             autocomplete: 'off', enterkeyhint: 'done' %>
     </div>
 
@@ -64,13 +61,21 @@
       </div>
     </div>
 
+    <fieldset class="field">
+      <legend>Add to watchlist</legend>
+      <div class="segmented">
+        <label><input type="radio" name="track" value="want" checked><span>Want to watch</span></label>
+        <label><input type="radio" name="track" value=""><span>Don't track</span></label>
+      </div>
+    </fieldset>
+
     <p class="form-error" id="form-error" role="alert" hidden></p>
 
     <button type="submit" class="primary" id="submit-download">Start download</button>
   <% end %>
 
   <div class="lists">
-    <% if @downloads.empty? %>
+    <% if @downloads_count.zero? %>
       <div class="empty">
         <i class="ph ph-tray"></i>
         <p>Nothing here yet. Paste a link to start your first download.</p>
@@ -91,11 +96,14 @@
     <% if @history.any? %>
       <section aria-labelledby="history-title">
         <h2 class="list-title" id="history-title">History</h2>
-        <ul class="dl-list">
+        <ul class="dl-list" id="history-list">
           <% @history.each do |download| %>
             <%= render 'download_card', download: download %>
           <% end %>
         </ul>
+        <% if @more_history %>
+          <a class="show-more" href="<%= root_path(page: @page + 1) %>" data-more="#history-list">Show more</a>
+        <% end %>
       </section>
     <% end %>
   </div>
@@ -121,6 +129,11 @@
         const data = await res.json();
         document.getElementById('stat-active').textContent = data.active;
 
+        // A running row missing from the answer has finished (or was removed): reload.
+        const ids = new Set(data.downloads.map(d => String(d.id)));
+        const gone = [...document.querySelectorAll('.dl')].some(r => ACTIVE.includes(r.dataset.status) && !ids.has(r.dataset.downloadId));
+        if (gone && !busy()) { window.location.reload(); return; }
+
         for (const d of data.downloads) {
           const row = document.querySelector(`.dl[data-download-id="${d.id}"]`);
           if (!row) continue;
@@ -145,18 +158,6 @@
       if (hasActiveRows()) timer = setInterval(poll, 2000);
     });
   })();
-
-  // Bottom sheets for each row's extra actions.
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-sheet]').forEach(btn => btn.addEventListener('click', () => {
-      document.getElementById(btn.dataset.sheet).showModal();
-    }));
-    document.querySelectorAll('dialog.sheet').forEach(sheet => {
-      sheet.querySelector('[data-close]').addEventListener('click', () => sheet.close());
-      // Tap on the dimmed backdrop closes the sheet.
-      sheet.addEventListener('click', e => { if (e.target === sheet) sheet.close(); });
-    });
-  });
 
   // New download form
   document.addEventListener('DOMContentLoaded', () => {
@@ -192,7 +193,7 @@
       episode.required = kind() === 'episode';
       document.getElementById('name-label').textContent = isTv() ? 'Show name' : 'Name';
       document.getElementById('name-note').textContent = isTv() ? '' : 'folder and file';
-      name.placeholder = isTv() ? 'Panchayat (2020)' : 'Dangal (2016)';
+      name.placeholder = isTv() ? 'Show name (Year)' : 'Movie name (Year)';
     };
     [...destRadios, ...kindRadios].forEach(r => r.addEventListener('change', syncTvFields));
 
@@ -226,6 +227,20 @@
       syncTvFields();
     };
     const suggestName = readLink;
+
+    // Coming from a watchlist title: /?name=Panchayat%20(2020)&media=tv&season=3
+    const pre = new URLSearchParams(window.location.search);
+    if (pre.get('name')) {
+      name.value = pre.get('name');
+      if (pre.get('media') === 'tv') {
+        const r = destRadios.find(r => r.dataset.tv === 'true'); if (r) r.checked = true;
+        if (pre.get('season')) season.value = pre.get('season');
+      } else if (pre.get('media') === 'movie') {
+        const r = destRadios.find(r => /movie/i.test(r.parentElement.textContent)); if (r) r.checked = true;
+      }
+      if (pre.get('track') === '') form.querySelector('input[name="track"][value=""]').checked = true;
+      url.focus();
+    }
     syncTvFields();
     url.addEventListener('change', suggestName);
     url.addEventListener('paste', () => setTimeout(suggestName, 0));
@@ -263,6 +278,7 @@
             'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
           },
           body: JSON.stringify({
+            track: formData.get('track'),
             download: {
               url: formData.get('download[url]'),
               filename: formData.get('download[filename]'),

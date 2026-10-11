@@ -8,7 +8,10 @@
     <meta name="color-scheme" content="light dark">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta name="apple-mobile-web-app-title" content="Popcorn">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -19,10 +22,110 @@
     <link href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" rel="stylesheet">
     <link href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" rel="stylesheet">
     <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
-    <%= javascript_importmap_tags %>
   </head>
 
   <body>
+    <% tabs = [["Watchlist", titles_path, "ph-film-strip", controller_name.in?(%w[titles title_seasons])],
+               ["Calendar", calendar_path, "ph-calendar-blank", controller_name == "plans"],
+               ["Diary", diary_path, "ph-book-open-text", controller_name == "viewings"],
+               ["Downloads", root_path, "ph-download-simple", controller_name == "downloads"]] %>
+    <header class="bar">
+      <div class="bar-inner">
+        <a class="wordmark" href="<%= root_path %>"><i class="ph-fill ph-popcorn"></i> Popcorn</a>
+        <nav class="top-tabs" aria-label="Sections">
+          <% tabs.each do |label, path, _, current| %>
+            <a href="<%= path %>" <%= 'aria-current="page"'.html_safe if current %>><%= label %></a>
+          <% end %>
+        </nav>
+        <%= yield :bar_right %>
+      </div>
+    </header>
+
     <%= yield %>
+
+    <nav class="tabbar" aria-label="Sections">
+      <% tabs.each do |label, path, icon, current| %>
+        <a href="<%= path %>" <%= 'aria-current="page"'.html_safe if current %>>
+          <i class="<%= current ? 'ph-fill' : 'ph' %> <%= icon %>"></i><span><%= label %></span>
+        </a>
+      <% end %>
+    </nav>
+
+    <script>
+      // Shared behaviour for every page (no framework needed).
+      document.addEventListener('DOMContentLoaded', () => {
+        // Bottom sheets: any [data-sheet="id"] opens <dialog id="id">.
+        document.addEventListener('click', e => {
+          const opener = e.target.closest('[data-sheet]');
+          if (opener) { e.preventDefault(); document.getElementById(opener.dataset.sheet)?.showModal(); return; }
+          if (e.target.closest('[data-close]')) { e.target.closest('dialog')?.close(); return; }
+          if (e.target.matches('dialog.sheet')) e.target.close(); // tap on the dimmed backdrop
+        });
+        // Open a sheet straight away: /watchlist/5?sheet=watch
+        const auto = new URLSearchParams(location.search).get('sheet');
+        if (auto) document.getElementById(`sheet-${auto}`)?.showModal();
+
+        // "Show more": fetch the next page and append it in place.
+        document.addEventListener('click', async e => {
+          const link = e.target.closest('a[data-more]');
+          if (!link) return;
+          e.preventDefault();
+          link.textContent = 'Loading...';
+          try {
+            const html = await (await fetch(link.href)).text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const sel = link.dataset.more;
+            const target = document.querySelector(sel);
+            for (const el of [...doc.querySelector(sel).children]) {
+              // Diary: a month that continues from the previous page joins it.
+              const last = target.lastElementChild;
+              if (el.dataset.month && last?.dataset.month === el.dataset.month) {
+                last.querySelector('ul').append(...el.querySelector('ul').children);
+              } else {
+                target.append(el);
+              }
+            }
+            const next = doc.querySelector(`a[data-more="${sel}"]`);
+            next ? link.replaceWith(next) : link.remove();
+          } catch (_) { window.location = link.href; }
+        });
+
+        // Star input: tap the left half of a star for a half star; tap again to clear.
+        document.querySelectorAll('.star-input').forEach(box => {
+          const input = box.querySelector('input');
+          const paint = () => box.querySelectorAll('[data-star]').forEach(s => {
+            const v = Number(input.value || 0), n = Number(s.dataset.star);
+            s.className = v >= n * 2 ? 'ph-fill ph-star' : v === n * 2 - 1 ? 'ph-fill ph-star-half' : 'ph ph-star';
+          });
+          box.addEventListener('click', e => {
+            const star = e.target.closest('[data-star]');
+            if (!star) return;
+            const r = star.getBoundingClientRect();
+            const value = Number(star.dataset.star) * 2 - (e.clientX - r.left < r.width / 2 ? 1 : 0);
+            input.value = Number(input.value) === value ? '' : value;
+            paint();
+            box.querySelector('.star-value').textContent = input.value ? `${input.value / 2} of 5` : 'No rating';
+          });
+          paint();
+        });
+
+        // Date chips: pick a chip, or "Pick a date" to type one.
+        document.querySelectorAll('.date-chips').forEach(group => {
+          const input = group.parentElement.querySelector('input[type=date]');
+          group.addEventListener('change', e => {
+            if (!e.target.matches('input[type=radio]')) return;
+            input.hidden = e.target.value !== '';
+            if (e.target.value) input.value = e.target.value; else input.focus();
+          });
+        });
+
+        // Share: the phone's share sheet when available, otherwise copy.
+        document.querySelectorAll('[data-share]').forEach(btn => btn.addEventListener('click', async () => {
+          const text = btn.dataset.share;
+          if (navigator.share) { try { await navigator.share({ text }); return; } catch (_) { return; } }
+          document.getElementById(btn.dataset.fallback)?.showModal();
+        }));
+      });
+    </script>
   </body>
 </html>

@@ -1,0 +1,113 @@
+<% content_for :bar_right do %>
+  <a href="<%= discover_path %>" class="bar-action"><i class="ph ph-plus"></i> Add</a>
+<% end %>
+
+<main class="page page-single">
+  <% flash.each do |type, message| %>
+    <div class="flash flash-<%= type %>" role="status"><%= message %></div>
+  <% end %>
+
+  <%# Plans whose date has passed: one tap to log them %>
+  <% if @overdue.any? %>
+  <div class="asks">
+    <% @overdue.each do |plan| %>
+      <div class="ask">
+        <%= poster(plan.title, size: "w154", css: "thumb ask-thumb") %>
+        <div class="ask-body">
+          <span class="ask-q">Did you watch <strong><%= plan.label %></strong>?</span>
+          <span class="hint">Planned for <%= short_date(plan.planned_on) %></span>
+          <div class="ask-actions">
+            <%= button_to title_viewings_path(plan.title), params: { watched_on: plan.planned_on.iso8601, season_numbers: [plan.season_number].compact },
+                  class: "chip-btn chip-btn-accent", form: { data: { turbo: false } } do %><i class="ph ph-check"></i> Yes<% end %>
+            <a href="<%= title_path(plan.title, sheet: 'plan') %>" class="chip-btn">Move</a>
+            <%= button_to plan_path(plan), method: :delete, params: { return_to: titles_path }, class: "chip-btn",
+                  form: { data: { turbo: false } } do %>Not yet<% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  <% end %>
+
+  <% if @planned.any? %>
+    <section aria-labelledby="planned-title">
+      <h2 class="list-title" id="planned-title">Planned <a href="<%= calendar_path %>" class="more-link">Calendar</a></h2>
+      <ul class="rail plans">
+        <% @planned.each do |plan| %>
+          <li>
+            <a href="<%= title_path(plan.title) %>" class="card-link">
+              <%= poster(plan.title, size: "w185") %>
+              <span class="plan-day"><%= relative_day(plan.planned_on) %></span>
+              <span class="card-name"><%= plan.label %></span>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <% if @watching.any? %>
+    <section aria-labelledby="watching-title">
+      <h2 class="list-title" id="watching-title">Continue watching</h2>
+      <ul class="rail posters">
+        <% @watching.each do |title| %>
+          <li>
+            <a href="<%= title_path(title) %>" class="card-link">
+              <%= poster(title, size: "w185") %>
+              <span class="card-name"><%= title.name %></span>
+              <span class="left"><%= seasons_left_note(title) || "Watching" %></span>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <section aria-labelledby="want-title">
+    <div class="list-head">
+      <h2 class="list-title" id="want-title">Want to watch <span class="num count"><%= @total %></span></h2>
+    </div>
+
+    <div class="toolbar">
+      <%= form_with url: titles_path, method: :get, local: true, class: 'search search-small' do %>
+        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+        <% @filters.except(:q).each do |k, v| %><input type="hidden" name="<%= k %>" value="<%= v %>"><% end %>
+        <input type="search" name="q" value="<%= @filters[:q] %>" class="input" placeholder="Search your list" aria-label="Search your list" enterkeyhint="search" autocomplete="off">
+      <% end %>
+      <button type="button" class="tool-btn<%= ' on' if @filters.except(:q, :sort).any? %>" data-sheet="sheet-filters" aria-label="Filter and sort">
+        <i class="ph ph-sliders-horizontal"></i>
+      </button>
+      <a href="<%= pick_titles_path(**@filters.except(:sort, :q)) %>" class="tool-btn tool-btn-accent" aria-label="Pick for me">
+        <i class="ph ph-shuffle"></i><span>Pick</span>
+      </a>
+    </div>
+
+    <% if @filters.except(:q).any? %>
+      <div class="active-filters">
+        <% labels = { type: { "movie" => "Movies", "tv" => "TV series" }, lang: { "hi" => "Hindi", "en" => "English", "other" => "Other languages" },
+                      have: { "library" => "In library", "missing" => "Not downloaded" }, sort: TitlesController::SORTS } %>
+        <% @filters.except(:q).each do |key, value| %>
+          <a href="<%= titles_path(**@filters.except(key)) %>" class="filter-chip"><%= labels.dig(key, value) || value %> <i class="ph ph-x"></i></a>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if @titles.empty? %>
+      <div class="empty">
+        <i class="ph ph-film-strip"></i>
+        <% if @filters.any? %>
+          <p>Nothing matches. <a href="<%= titles_path %>">Clear filters</a></p>
+        <% else %>
+          <p>Your Want list is empty. Tap <a href="<%= discover_path %>">Add</a> to find movies and series, or start a download.</p>
+        <% end %>
+      </div>
+    <% else %>
+      <ul class="grid" id="want-grid"><%= render partial: 'card', collection: @titles, as: :title %></ul>
+      <% if @more %>
+        <a class="show-more" href="<%= titles_path(**@filters, page: @page + 1) %>" data-more="#want-grid">Show more</a>
+      <% end %>
+    <% end %>
+  </section>
+
+  <%= render 'filter_sheet' %>
+</main>

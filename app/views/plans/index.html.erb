@@ -1,0 +1,138 @@
+<main class="page page-single">
+  <% flash.each do |type, message| %>
+    <div class="flash flash-<%= type %>" role="status"><%= message %></div>
+  <% end %>
+
+  <div class="cal-head">
+    <h2 class="cal-title"><%= @month.strftime("%B") %> <span class="cal-year"><%= @month.year %></span></h2>
+    <div class="cal-nav">
+      <a href="<%= calendar_path(month: (@month << 1).strftime('%Y-%m')) %>" class="icon-btn" aria-label="Previous month"><i class="ph ph-caret-left"></i></a>
+      <% unless @month == Date.current.beginning_of_month %>
+        <a href="<%= calendar_path %>" class="cal-today">Today</a>
+      <% end %>
+      <a href="<%= calendar_path(month: (@month >> 1).strftime('%Y-%m')) %>" class="icon-btn" aria-label="Next month"><i class="ph ph-caret-right"></i></a>
+    </div>
+  </div>
+
+  <% kinds = { plan: "Planned", release: "Release", watched: "Watched" } %>
+  <div class="cal" id="cal">
+    <% %w[Mon Tue Wed Thu Fri Sat Sun].each do |d| %><span class="cal-wd"><%= d %></span><% end %>
+    <% @days.each do |day| %>
+      <% events = @events[day] || [] %>
+      <% classes = ["cal-day"]
+         classes << "other" if day.month != @month.month
+         classes << "weekend" if day.wday.in?([5, 6, 0])
+         classes << "today" if day == Date.current
+         classes << "selected" if day == @selected
+         classes << "has" if events.any? %>
+      <button type="button" class="<%= classes.join(' ') %>" data-day="<%= day.iso8601 %>"
+              aria-label="<%= day.strftime('%A %-d %B') %><%= ", #{events.size} #{'item'.pluralize(events.size)}" if events.any? %>">
+        <span class="cal-num"><%= day.day %></span>
+        <span class="cal-events">
+          <% events.first(3).each do |kind, _title, label| %>
+            <span class="ev ev-<%= kind %>"><%= label %></span>
+          <% end %>
+          <% if events.size > 3 %><span class="ev-more">+<%= events.size - 3 %></span><% end %>
+        </span>
+      </button>
+    <% end %>
+  </div>
+  <p class="legend">
+    <span><i class="key plan"></i> Planned</span>
+    <span><i class="key release"></i> Release</span>
+    <span><i class="key watched"></i> Watched</span>
+  </p>
+
+  <%# What is on the tapped day (today by default) %>
+  <section class="day-panel" aria-live="polite">
+    <% @days.each do |day| %>
+      <% events = @events[day] || [] %>
+      <div class="day-list" data-day="<%= day.iso8601 %>" <%= 'hidden' unless day == @selected %>>
+        <h3 class="day-title"><%= day == Date.current ? "Today" : day.strftime("%A %-d %B") %></h3>
+        <% if events.empty? %>
+          <p class="hint"><%= day < Date.current ? "Nothing logged this day." : "Nothing planned." %></p>
+        <% else %>
+          <ul class="day-items">
+            <% events.each do |kind, title, label| %>
+              <li>
+                <a href="<%= title_path(title) %>" class="agenda-item">
+                  <%= poster(title, size: "w92", css: "thumb mini") %>
+                  <span class="diary-what">
+                    <span class="result-name"><%= label %></span>
+                    <span class="result-meta"><span class="tag tag-<%= kind %>"><%= kinds[kind] %></span><% if title.year %><span><%= title.year %></span><% end %></span>
+                  </span>
+                  <i class="ph ph-caret-right"></i>
+                </a>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </div>
+    <% end %>
+  </section>
+
+  <script>
+    // Tap a day to show what is on it, without reloading.
+    document.getElementById('cal').addEventListener('click', e => {
+      const cell = e.target.closest('.cal-day');
+      if (!cell) return;
+      document.querySelectorAll('.cal-day.selected').forEach(c => c.classList.remove('selected'));
+      cell.classList.add('selected');
+      document.querySelectorAll('.day-list').forEach(l => { l.hidden = l.dataset.day !== cell.dataset.day; });
+    });
+  </script>
+
+  <% if @overdue.any? %>
+    <section aria-labelledby="ask-title">
+      <h2 class="list-title" id="ask-title">Did you watch these?</h2>
+      <div class="asks">
+        <% @overdue.each do |plan| %>
+          <div class="ask">
+            <%= poster(plan.title, size: "w154", css: "thumb ask-thumb") %>
+            <div class="ask-body">
+              <span class="ask-q"><strong><%= plan.label %></strong></span>
+              <span class="hint">Planned for <%= short_date(plan.planned_on) %></span>
+              <div class="ask-actions">
+                <%= button_to title_viewings_path(plan.title), params: { watched_on: plan.planned_on.iso8601, season_numbers: [plan.season_number].compact },
+                      class: "chip-btn chip-btn-accent", form: { data: { turbo: false } } do %><i class="ph ph-check"></i> Watched<% end %>
+                <a href="<%= title_path(plan.title, sheet: 'plan') %>" class="chip-btn">Move</a>
+                <%= button_to plan_path(plan), method: :delete, params: { return_to: calendar_path }, class: "chip-btn",
+                      form: { data: { turbo: false } } do %>Remove<% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </section>
+  <% end %>
+
+  <section aria-labelledby="upcoming-title">
+    <h2 class="list-title" id="upcoming-title">Upcoming</h2>
+    <% if @upcoming.empty? %>
+      <div class="empty">
+        <i class="ph ph-calendar-blank"></i>
+        <p>Nothing planned. Open a title and tap Plan, or add upcoming releases from <a href="<%= discover_path %>">Discover</a>.</p>
+      </div>
+    <% else %>
+      <ul class="agenda">
+        <% @upcoming.chunk_while { |a, b| a.first == b.first }.each do |group| %>
+          <li class="agenda-day">
+            <span class="agenda-date"><span class="num"><%= group.first.first.day %></span><small><%= group.first.first.strftime("%a %b") %></small></span>
+            <div class="agenda-items">
+              <% group.each do |_, kind, item| %>
+                <% title = kind == :plan ? item.title : item %>
+                <a href="<%= title_path(title) %>" class="agenda-item">
+                  <%= poster(title, size: "w92", css: "thumb mini") %>
+                  <span class="diary-what">
+                    <span class="result-name"><%= kind == :plan ? item.label : title.name %></span>
+                    <span class="result-meta"><%= kind == :plan ? (item.planned_on == Date.current ? "Planned for tonight" : "Planned") : "Release day" %></span>
+                  </span>
+                </a>
+              <% end %>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </section>
+</main>

@@ -1,0 +1,19 @@
+<details class="add-manual" <%= 'open' if local_assigns[:open] %>>
+  <summary><i class="ph ph-plus"></i> Add by name</summary>
+  <%= form_with url: titles_path, method: :post, local: true, class: 'manual-form' do %>
+    <input type="hidden" name="return_to" value="<%= request.fullpath %>">
+    <div class="field">
+      <label for="manual-name">Name <span class="label-note">with year if you know it</span></label>
+      <input id="manual-name" name="name" class="input" required placeholder="Movie or show name (Year)" autocomplete="off" value="<%= local_assigns[:name] %>">
+    </div>
+    <div class="segmented">
+      <label><input type="radio" name="media_type" value="movie" checked><span>Movie</span></label>
+      <label><input type="radio" name="media_type" value="tv"><span>TV series</span></label>
+    </div>
+    <div class="segmented">
+      <label><input type="radio" name="status" value="want" checked><span>Want to watch</span></label>
+      <label><input type="radio" name="status" value="watched"><span>Watched</span></label>
+    </div>
+    <button type="submit" class="primary">Add to watchlist</button>
+  <% end %>
+</details>

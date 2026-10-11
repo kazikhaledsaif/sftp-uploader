@@ -1,0 +1,8 @@
+<%# Tap-to-rate stars (half stars). Submits name="rating" as 1..10, or empty. %>
+<div class="star-input">
+  <input type="hidden" name="rating" value="<%= local_assigns[:value] %>">
+  <div class="star-row" role="group" aria-label="Your rating">
+    <% (1..5).each do |n| %><i data-star="<%= n %>" class="ph ph-star"></i><% end %>
+  </div>
+  <span class="star-value"><%= local_assigns[:value] ? "#{local_assigns[:value] / 2.0} of 5" : "No rating" %></span>
+</div>

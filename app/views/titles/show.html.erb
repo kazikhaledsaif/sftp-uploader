@@ -1,0 +1,234 @@
+<% t = @title %>
+<main class="page page-single title-page">
+  <% if (src = Tmdb.image_url(t.backdrop_path, "w780")) %>
+    <div class="backdrop" style="background-image: url('<%= src %>')" aria-hidden="true"></div>
+  <% end %>
+
+  <a href="<%= t.status == 'watched' ? diary_path : titles_path %>" class="back"><i class="ph ph-caret-left"></i> <%= t.status == 'watched' ? 'Diary' : 'Watchlist' %></a>
+
+  <% flash.each do |type, message| %>
+    <div class="flash flash-<%= type %>" role="status"><%= message %></div>
+  <% end %>
+
+  <% if @picked %>
+    <div class="picked">
+      <span><i class="ph-fill ph-shuffle"></i> Picked for you</span>
+      <a href="<%= pick_titles_path(**@pick_filters, not: t.id) %>" class="chip-btn">Pick another</a>
+    </div>
+  <% end %>
+
+  <section class="hero">
+    <%= poster(t, size: "w342", css: "hero-poster") %>
+    <div class="hero-text">
+      <h1 class="hero-name"><%= t.name %></h1>
+      <% if t.alternate_name %><p class="hero-alt"><%= t.alternate_name %></p><% end %>
+      <p class="facts">
+        <span><%= t.tv? ? "TV series" : "Movie" %></span>
+        <% if t.year %><span class="num"><%= t.year %></span><% end %>
+        <% if (rt = runtime_text(t.runtime)) %><span class="num"><%= rt %><%= " / ep" if t.tv? %></span><% end %>
+        <% if (lang = language_name(t.original_language)) %><span><%= lang %></span><% end %>
+      </p>
+      <% if t.genre_list.any? %><p class="genres"><%= t.genre_list.first(3).join(", ") %></p><% end %>
+    </div>
+  </section>
+
+  <% if (sc = scores(t)).any? %>
+    <div class="scores">
+      <% sc.each do |label, value| %>
+        <div class="score"><span class="score-value num"><%= value %></span><span class="score-label"><%= label %></span></div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# Where you stand with this title %>
+  <div class="standing">
+    <% if t.status == "watched" %>
+      <span class="standing-main"><i class="ph-fill ph-check-circle"></i> Watched <%= short_date(t.watched_on) %></span>
+      <%= stars(t.my_rating) %>
+    <% elsif t.status == "watching" %>
+      <span class="standing-main"><i class="ph-fill ph-play-circle"></i> Watching<%= ", next Season #{t.seasons_left.first.number}" if t.seasons_left.any? %></span>
+    <% else %>
+      <span class="standing-main"><i class="ph ph-bookmark-simple"></i> On your Want list</span>
+    <% end %>
+    <% if (plan = t.next_plan) %>
+      <span class="plan-chip">
+        <i class="ph ph-calendar-check"></i> <%= relative_day(plan.planned_on) %><%= ", S#{plan.season_number}" if plan.season_number %>
+        <%= button_to plan_path(plan), method: :delete, params: { return_to: title_path(t) }, class: 'plan-x',
+              form: { data: { turbo: false } }, "aria-label": "Remove plan" do %><i class="ph ph-x"></i><% end %>
+      </span>
+    <% end %>
+    <% if t.upcoming? %><span class="soon"><%= release_note(t) %></span><% end %>
+    <% if t.downloaded? %><span class="have"><i class="ph-fill ph-check-circle"></i> In library</span><% end %>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="action action-main" data-sheet="sheet-watch">
+      <i class="ph ph-check-circle"></i><span><%= t.status == "watched" && !t.tv? ? "Watch again" : "Mark watched" %></span>
+    </button>
+    <button type="button" class="action" data-sheet="sheet-plan"><i class="ph ph-calendar-plus"></i><span>Plan</span></button>
+    <a class="action" href="<%= download_link_for(t, season: t.seasons_left.first&.number) %>"><i class="ph ph-download-simple"></i><span>Download</span></a>
+    <button type="button" class="action" data-share="<%= share_text(t) %>" data-fallback="sheet-share"><i class="ph ph-share-network"></i><span>Share</span></button>
+  </div>
+
+  <% if t.detail(:tagline) %><p class="tagline"><%= t.detail(:tagline) %></p><% end %>
+  <% if t.overview.present? %><p class="overview"><%= t.overview %></p><% end %>
+
+  <% if (key = t.detail(:trailer)) %>
+    <a class="trailer" href="https://www.youtube.com/watch?v=<%= key %>" target="_blank" rel="noopener">
+      <img src="https://i.ytimg.com/vi/<%= key %>/hqdefault.jpg" alt="" loading="lazy">
+      <span class="trailer-play"><i class="ph-fill ph-play"></i> Watch trailer</span>
+    </a>
+  <% end %>
+
+  <% if Array(t.detail(:directors)).any? %>
+    <p class="credit"><span><%= t.tv? ? "Created by" : "Directed by" %></span> <%= Array(t.detail(:directors)).join(", ") %></p>
+  <% end %>
+
+  <% if Array(t.detail(:cast)).any? %>
+    <section aria-labelledby="cast-title">
+      <h2 class="list-title" id="cast-title">Cast</h2>
+      <ul class="rail cast">
+        <% t.detail(:cast).each do |c| %>
+          <li>
+            <% if (src = profile_url(c["photo"])) %><img src="<%= src %>" alt="" loading="lazy" class="face"><% else %><span class="face face-empty"><%= c["name"].to_s.first %></span><% end %>
+            <span class="cast-name"><%= c["name"] %></span>
+            <% if c["character"] %><span class="cast-role"><%= c["character"] %></span><% end %>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <% if t.detail(:wiki_summary) || t.detail(:awards) %>
+    <section aria-labelledby="about-title" class="about">
+      <h2 class="list-title" id="about-title">About</h2>
+      <% if t.detail(:awards) %><p class="awards"><i class="ph ph-trophy"></i> <%= t.detail(:awards) %></p><% end %>
+      <% if t.detail(:wiki_summary) %>
+        <p class="overview"><%= t.detail(:wiki_summary) %></p>
+        <a href="<%= t.detail(:wiki_url) %>" target="_blank" rel="noopener" class="more-link">Read more on Wikipedia</a>
+      <% end %>
+    </section>
+  <% end %>
+
+  <% if t.tv? %>
+    <section aria-labelledby="seasons-title">
+      <h2 class="list-title" id="seasons-title">
+        Seasons
+        <% if t.seasons.any? %>
+          <span class="seasons-count"><%= t.seasons_left.empty? ? "all watched" : "#{t.seasons.count(&:watched?)} of #{t.seasons.size} watched" %></span>
+        <% end %>
+      </h2>
+      <% if t.seasons.empty? %>
+        <p class="hint">No seasons yet. They appear when you download one, or when TMDB knows the show.</p>
+      <% end %>
+      <ul class="seasons">
+        <% next_up = t.seasons_left.first if t.seasons.any?(&:watched?) %>
+        <% t.seasons.each do |season| %>
+          <li class="season" id="season-<%= season.number %>">
+            <div class="season-body">
+              <span class="season-name"><%= season.label %><% if season == next_up %> <span class="left">Up next</span><% end %></span>
+              <span class="result-meta">
+                <% if season.episode_count %><span><%= pluralize(season.episode_count, 'episode') %></span><% end %>
+                <% if season.watched? %><span>Watched <%= short_date(season.watched_on) %></span>
+                <% elsif season.air_date %><span class="num"><%= season.air_date.year %></span><% end %>
+                <% if t.downloads.any? { |d| d.completed? && d.season == season.number } %>
+                  <span class="have"><i class="ph-fill ph-check-circle"></i> In library</span>
+                <% end %>
+              </span>
+            </div>
+            <a href="<%= download_link_for(t, season: season.number) %>" class="icon-btn" aria-label="Download <%= season.label %>"><i class="ph ph-download-simple"></i></a>
+            <%= button_to title_season_path(t, season), method: :patch,
+                  params: { status: season.watched? ? "want" : "watched" },
+                  class: "season-toggle#{' on' if season.watched?}", form: { data: { turbo: false } },
+                  "aria-pressed": season.watched?, "aria-label": "#{season.label} watched" do %>
+              <i class="<%= season.watched? ? 'ph-fill ph-check-circle' : 'ph ph-circle' %>"></i>
+              <span><%= season.watched? ? "Watched" : "Mark" %></span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <% if t.viewings.any? %>
+    <section aria-labelledby="diary-title">
+      <h2 class="list-title" id="diary-title">Your diary</h2>
+      <ul class="entries">
+        <% t.viewings.sort_by { |v| [v.watched_on, v.created_at] }.reverse_each do |v| %>
+          <li class="entry">
+            <button type="button" class="entry-open" data-sheet="sheet-entry-<%= v.id %>">
+              <span class="entry-date num"><%= short_date(v.watched_on) %></span>
+              <span class="entry-what"><%= v.season_number ? "Season #{v.season_number}" : (t.tv? ? "Whole show" : "Watched") %></span>
+              <%= stars(v.rating) %>
+              <% if v.note %><span class="entry-note"><%= v.note %></span><% end %>
+            </button>
+            <dialog class="sheet" id="sheet-entry-<%= v.id %>">
+              <%= form_with url: viewing_path(v), method: :patch, local: true, class: 'sheet-body sheet-form' do %>
+                <input type="hidden" name="return_to" value="<%= title_path(t) %>">
+                <h4 class="sheet-title">Edit diary entry</h4>
+                <div class="field">
+                  <label for="entry-date-<%= v.id %>">Watched on</label>
+                  <input type="date" id="entry-date-<%= v.id %>" name="watched_on" class="input" value="<%= v.watched_on.iso8601 %>" max="<%= Date.current.iso8601 %>">
+                </div>
+                <fieldset class="field"><legend>Your rating</legend><%= render 'shared/star_input', value: v.rating %></fieldset>
+                <div class="field">
+                  <label for="entry-note-<%= v.id %>">Note</label>
+                  <textarea id="entry-note-<%= v.id %>" name="note" class="input textarea" rows="2"><%= v.note %></textarea>
+                </div>
+                <button type="submit" class="primary">Save</button>
+              <% end %>
+              <div class="sheet-body sheet-tail">
+                <%= button_to viewing_path(v), method: :delete, params: { return_to: title_path(t) }, class: 'text-danger',
+                      form: { data: { turbo: false }, onsubmit: "return confirm('Remove this diary entry?')" } do %>Remove entry<% end %>
+                <button type="button" class="sheet-close" data-close>Cancel</button>
+              </div>
+            </dialog>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <% recs = Array(t.detail(:recommendations)).map(&:symbolize_keys) %>
+  <% if recs.any? %>
+    <section aria-labelledby="recs-title">
+      <h2 class="list-title" id="recs-title">More like this</h2>
+      <%= render 'rail', items: recs, tracked: Title.where(tmdb_id: recs.map { |r| r[:tmdb_id] }).index_by { |x| [x.media_type, x.tmdb_id] } %>
+    </section>
+  <% end %>
+
+  <% if t.downloads.any? %>
+    <section aria-labelledby="dl-title">
+      <h2 class="list-title" id="dl-title">Downloads</h2>
+      <ul class="mini-list">
+        <% t.downloads.sort_by(&:created_at).reverse_each do |d| %>
+          <li>
+            <span><%= episode_label(d) || "Movie file" %></span>
+            <span class="dl-status-text status-<%= d.status %>"><%= status_label(d) %></span>
+          </li>
+        <% end %>
+      </ul>
+    </section>
+  <% end %>
+
+  <div class="title-actions">
+    <% if Tmdb.enabled? %>
+      <%= button_to refresh_title_path(t), class: 'secondary', form: { data: { turbo: false } } do %>
+        <i class="ph ph-arrows-clockwise"></i> <%= t.poster_path.blank? ? "Find artwork" : "Refresh details" %>
+      <% end %>
+    <% end %>
+    <% if t.status != "want" && !t.tv? %>
+      <%= button_to title_path(t), method: :patch, params: { status: "want" }, class: 'secondary', form: { data: { turbo: false } } do %>
+        <i class="ph ph-bookmark-simple"></i> Want to watch again
+      <% end %>
+    <% end %>
+    <%= button_to title_path(t), method: :delete, class: 'text-danger',
+          form: { data: { turbo: false }, onsubmit: "return confirm('Remove #{j t.name} and its diary entries? Downloaded files are not touched.')" } do %>
+      Remove from Popcorn
+    <% end %>
+  </div>
+
+  <%= render 'watch_sheet', title: t %>
+  <%= render 'plan_sheet', title: t %>
+  <%= render 'share_sheet', title: t %>
+</main>
