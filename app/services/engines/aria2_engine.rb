@@ -170,6 +170,7 @@ module Engines
       return if tracked.empty?
 
       results = @client.multicall(tracked.map { |d| ["aria2.tellStatus", d.gid, SYNC_KEYS] })
+      SpeedLimit.record(results.sum { |r| r.is_a?(Hash) ? r["downloadSpeed"].to_i : 0 })
       finished_gids = []
       Download.transaction do
         tracked.zip(results).each do |download, result|

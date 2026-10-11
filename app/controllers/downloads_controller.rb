@@ -23,6 +23,15 @@ class DownloadsController < ApplicationController
     @completed_downloads = Download.completed.count
     @destinations = Destinations.all
     @space = @destinations.to_h { |_, path| [path, DiskSpace.for(path)] }
+    @speed_mode = SpeedLimit.mode
+  end
+
+  # POST /downloads/speed  mode=full|balanced|light
+  def speed
+    SpeedLimit.set!(params[:mode].to_s)
+    redirect_to root_path, notice: "Download speed: #{SpeedLimit::LABELS[SpeedLimit.mode]}."
+  rescue ArgumentError
+    redirect_to root_path
   end
 
   # GET /downloads/status.json  (polled by the page every few seconds)

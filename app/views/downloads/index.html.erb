@@ -82,6 +82,27 @@
   <% end %>
 
   <div class="lists">
+    <section class="speed" aria-labelledby="speed-title">
+      <h2 class="list-title" id="speed-title">Download speed</h2>
+      <div class="segmented speed-modes">
+        <% SpeedLimit::MODES.each_key do |mode| %>
+          <%= button_to speed_downloads_path, params: { mode: mode }, class: ("on" if mode == @speed_mode),
+                form: { data: { turbo: false } }, "aria-pressed": mode == @speed_mode do %>
+            <%= SpeedLimit::LABELS[mode] %>
+          <% end %>
+        <% end %>
+      </div>
+      <p class="hint">
+        <% limit = SpeedLimit.limit_for(@speed_mode) %>
+        <% if limit.zero? %>
+          Downloads may use your whole internet line.
+        <% else %>
+          Up to <%= Download.human_bytes(limit) %>/s, so other devices stay fast.
+        <% end %>
+        <% unless SpeedLimit.peak.positive? %>Limits adjust after a download at full speed.<% end %>
+      </p>
+    </section>
+
     <% if @downloads_count.zero? %>
       <div class="empty">
         <i class="ph ph-tray"></i>

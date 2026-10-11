@@ -1227,3 +1227,18 @@ a.icon-btn { text-decoration: none; }
 .disk-bar > i { display: block; height: 100%; background: var(--muted); border-radius: 2px; }
 .disk.low { color: var(--accent-text); font-weight: 600; }
 .disk.low .disk-bar > i { background: var(--accent); }
+
+/* Download speed modes */
+.speed-modes form { display: contents; }
+.speed-modes button {
+  height: 40px;
+  border: 0;
+  border-radius: calc(var(--radius) - 3px);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.speed-modes button.on { background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: 0 1px 2px rgb(24 24 27 / 0.12); }
+.speed .hint { margin-top: 8px; }

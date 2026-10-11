@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   resources :downloads, only: %i[index create destroy] do
     collection do
       get :status
+      post :speed
     end
     member do
       post :pause
